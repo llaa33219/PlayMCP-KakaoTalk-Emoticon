@@ -7,7 +7,6 @@ PlayMCP에서 호스팅되며, 허깅페이스 계정 연동을 통해 이미지
 import os
 from typing import List, Optional
 
-
 # FastAPI 관련 임포트만 최상위에 유지 (빠른 헬스체크를 위해)
 from fastapi import FastAPI, Response
 from fastapi.responses import HTMLResponse
@@ -38,9 +37,6 @@ def _get_mcp():
     _register_tools(_mcp)
     
     return _mcp
-
-
-
 
 
 # FastAPI 앱 생성
@@ -302,9 +298,18 @@ async def get_download(download_id: str):
 
 
 # MCP SSE 앱을 루트에 마운트 (모든 명시적 라우트 정의 후에 마운트해야 함)
-# /sse와 /messages/ 경로가 MCP 프로토콜에 맞게 작동함
-app.mount("/", _get_mcp().sse_app())
-print("MCP server initialized - SSE endpoint available at: /sse")
+# try-except로 감싸서 MCP 초기화 실패해도 서버는 시작되도록 함
+try:
+    import traceback
+    print("Initializing MCP server...")
+    mcp_instance = _get_mcp()
+    print("MCP instance created, mounting SSE app...")
+    app.mount("/", mcp_instance.sse_app())
+    print("MCP server initialized - SSE endpoint available at: /sse")
+except Exception as e:
+    print(f"Warning: MCP initialization failed: {e}")
+    traceback.print_exc()
+    print("Server will continue running without MCP support")
 
 
 if __name__ == "__main__":
