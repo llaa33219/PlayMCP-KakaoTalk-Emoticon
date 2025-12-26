@@ -1,0 +1,18 @@
+# MCP 서버
+fastmcp>=0.1.0
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+
+# 이미지 처리
+Pillow>=10.0.0
+httpx>=0.24.0
+
+# Hugging Face
+huggingface-hub>=0.20.0
+
+# 템플릿
+Jinja2>=3.1.0
+
+# 유틸리티
+pydantic>=2.0.0
+python-multipart>=0.0.6
