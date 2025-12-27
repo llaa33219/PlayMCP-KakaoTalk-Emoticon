@@ -29,8 +29,8 @@ def _get_mcp():
     
     _mcp = FastMCP(
         name="kakao-emoticon-mcp",
-        description="카카오톡 이모티콘 제작 자동화 MCP 서버. "
-                    "이모티콘 기획 프리뷰, AI 이미지 생성, 완성본 프리뷰, 사양 검사 기능을 제공합니다."
+        instructions="카카오톡 이모티콘 제작 자동화 MCP 서버. "
+                     "이모티콘 기획 프리뷰, AI 이미지 생성, 완성본 프리뷰, 사양 검사 기능을 제공합니다."
     )
     
     # 도구 등록
