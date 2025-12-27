@@ -62,10 +62,12 @@ async def generate(
     캐릭터 이미지와 이모티콘 설명을 기반으로 이모티콘을 생성합니다.
     캐릭터 이미지가 없으면 먼저 캐릭터를 생성합니다.
     움직이는 이모티콘은 비디오를 생성한 후 WebP로 변환합니다.
+    이미지는 서버에 저장되고 URL로 반환됩니다.
     """
     spec = get_emoticon_spec(request.emoticon_type)
     emoticon_type_str = request.emoticon_type.value if isinstance(request.emoticon_type, EmoticonType) else request.emoticon_type
     hf_client = get_hf_client(hf_token)
+    generator = get_preview_generator(os.environ.get("BASE_URL", ""))
     
     # 캐릭터 이미지 준비
     if request.character_image:
@@ -78,6 +80,7 @@ async def generate(
         )
     
     generated_emoticons: List[GeneratedEmoticon] = []
+    emoticon_bytes_list: List[bytes] = []  # 아이콘 생성을 위해 바이트 저장
     
     for idx, emoticon_item in enumerate(request.emoticons):
         # 이모티콘 생성
@@ -115,9 +118,13 @@ async def generate(
         width, height, _ = get_image_info(image_bytes)
         size_kb = len(image_bytes) / 1024
         
+        # 이미지를 서버에 저장하고 URL 반환
+        image_url = generator.store_image(image_bytes, mime_type)
+        emoticon_bytes_list.append(image_bytes)
+        
         generated_emoticons.append(GeneratedEmoticon(
             index=idx,
-            image_data=encode_base64_image(image_bytes, mime_type),
+            image_data=image_url,
             file_extension=emoticon_item.file_extension.value if hasattr(emoticon_item.file_extension, 'value') else emoticon_item.file_extension,
             width=width,
             height=height,
@@ -125,17 +132,17 @@ async def generate(
         ))
     
     # 아이콘 생성 (첫 번째 이모티콘 기반)
-    if generated_emoticons:
-        first_emoticon_data = generated_emoticons[0].image_data
-        first_emoticon_bytes = decode_base64_image(first_emoticon_data)
-        icon_bytes = create_icon(first_emoticon_bytes, spec)
+    if emoticon_bytes_list:
+        icon_bytes = create_icon(emoticon_bytes_list[0], spec)
     else:
         icon_bytes = create_icon(character_bytes, spec)
     
     icon_width, icon_height, _ = get_image_info(icon_bytes)
+    icon_url = generator.store_image(icon_bytes, "image/png")
+    
     icon = GeneratedEmoticon(
         index=-1,
-        image_data=encode_base64_image(icon_bytes, "image/png"),
+        image_data=icon_url,
         file_extension="png",
         width=icon_width,
         height=icon_height,

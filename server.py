@@ -110,7 +110,8 @@ async def root():
             "mcp": "/",
             "health": "/health",
             "preview": "/preview/{preview_id}",
-            "download": "/download/{download_id}"
+            "download": "/download/{download_id}",
+            "image": "/image/{image_id}"
         }
     }
 
@@ -141,6 +142,21 @@ async def get_download(download_id: str):
             headers={"Content-Disposition": "attachment; filename=emoticons.zip"}
         )
     return Response(content="Download not found", status_code=404)
+
+
+@app.get("/image/{image_id}")
+async def get_image(image_id: str):
+    """저장된 이미지 반환"""
+    from src.preview_generator import get_preview_generator
+    
+    generator = get_preview_generator(os.environ.get("BASE_URL", ""))
+    image_info = generator.get_image(image_id)
+    if image_info:
+        return Response(
+            content=image_info["data"],
+            media_type=image_info["mime_type"]
+        )
+    return Response(content="Image not found", status_code=404)
 
 
 # ===== MCP 도구 등록 함수 (MCP 초기화 전에 정의되어야 함) =====

@@ -440,6 +440,7 @@ class PreviewGenerator:
         self.base_url = base_url.rstrip("/")
         self._storage: Dict[str, str] = {}  # preview_id -> HTML content
         self._zip_storage: Dict[str, bytes] = {}  # download_id -> ZIP bytes
+        self._image_storage: Dict[str, Dict[str, Any]] = {}  # image_id -> {"data": bytes, "mime_type": str}
     
     def _generate_short_id(self, length: int = 8) -> str:
         """
@@ -453,6 +454,61 @@ class PreviewGenerator:
         """
         alphabet = string.ascii_letters + string.digits
         return ''.join(secrets.choice(alphabet) for _ in range(length))
+    
+    def store_image(self, image_data: bytes, mime_type: str = "image/png") -> str:
+        """
+        이미지를 저장하고 URL을 반환합니다.
+        
+        Args:
+            image_data: 이미지 바이트 데이터
+            mime_type: 이미지 MIME 타입
+            
+        Returns:
+            이미지 URL (예: /image/{image_id} 또는 {base_url}/image/{image_id})
+        """
+        image_id = self._generate_short_id()
+        self._image_storage[image_id] = {
+            "data": image_data,
+            "mime_type": mime_type
+        }
+        
+        if self.base_url:
+            return f"{self.base_url}/image/{image_id}"
+        else:
+            return f"/image/{image_id}"
+    
+    def store_base64_image(self, base64_data: str) -> str:
+        """
+        Base64 인코딩된 이미지를 저장하고 URL을 반환합니다.
+        
+        Args:
+            base64_data: Base64 인코딩된 이미지 (data:image/...;base64,... 형식 지원)
+            
+        Returns:
+            이미지 URL
+        """
+        if base64_data.startswith("data:"):
+            # data:image/png;base64,... 형식 파싱
+            header, data = base64_data.split(",", 1)
+            mime_type = header.split(":")[1].split(";")[0]
+        else:
+            data = base64_data
+            mime_type = "image/png"
+        
+        image_bytes = base64.b64decode(data)
+        return self.store_image(image_bytes, mime_type)
+    
+    def get_image(self, image_id: str) -> Optional[Dict[str, Any]]:
+        """
+        저장된 이미지 정보 반환
+        
+        Args:
+            image_id: 이미지 ID
+            
+        Returns:
+            {"data": bytes, "mime_type": str} 또는 None
+        """
+        return self._image_storage.get(image_id)
     
     def generate_before_preview(
         self,
@@ -469,7 +525,7 @@ class PreviewGenerator:
             plans: 이모티콘 기획 목록 [{description, file_type}, ...]
             
         Returns:
-            프리뷰 페이지 URL 또는 data URL
+            프리뷰 페이지 URL
         """
         spec = get_emoticon_spec(emoticon_type)
         # Enum을 문자열로 변환하여 EMOTICON_TYPE_NAMES 조회
@@ -491,8 +547,7 @@ class PreviewGenerator:
         if self.base_url:
             return f"{self.base_url}/preview/{preview_id}"
         else:
-            encoded = base64.b64encode(html_content.encode("utf-8")).decode("utf-8")
-            return f"data:text/html;base64,{encoded}"
+            return f"/preview/{preview_id}"
     
     def generate_after_preview(
         self,
@@ -526,8 +581,7 @@ class PreviewGenerator:
         if self.base_url:
             download_url = f"{self.base_url}/download/{download_id}"
         else:
-            encoded = base64.b64encode(zip_bytes).decode("utf-8")
-            download_url = f"data:application/zip;base64,{encoded}"
+            download_url = f"/download/{download_id}"
         
         template = Template(AFTER_PREVIEW_TEMPLATE)
         html_content = template.render(
@@ -545,10 +599,42 @@ class PreviewGenerator:
         if self.base_url:
             preview_url = f"{self.base_url}/preview/{preview_id}"
         else:
-            encoded = base64.b64encode(html_content.encode("utf-8")).decode("utf-8")
-            preview_url = f"data:text/html;base64,{encoded}"
+            preview_url = f"/preview/{preview_id}"
         
         return preview_url, download_url
+    
+    def _get_image_bytes_from_ref(self, image_ref: str) -> Optional[bytes]:
+        """
+        이미지 참조(서버 URL, data URL, 또는 base64)에서 바이트를 추출합니다.
+        
+        Args:
+            image_ref: 이미지 URL (/image/{id}), data URL, 또는 base64 문자열
+            
+        Returns:
+            이미지 바이트 또는 None
+        """
+        if not image_ref:
+            return None
+        
+        # 서버 내부 URL (/image/{id} 또는 {base_url}/image/{id})
+        if "/image/" in image_ref:
+            # URL에서 image_id 추출
+            image_id = image_ref.split("/image/")[-1].split("?")[0].split("#")[0]
+            image_info = self.get_image(image_id)
+            if image_info:
+                return image_info["data"]
+            return None
+        
+        # data URL (data:image/...;base64,...)
+        if image_ref.startswith("data:"):
+            _, data = image_ref.split(",", 1)
+            return base64.b64decode(data)
+        
+        # 순수 base64
+        try:
+            return base64.b64decode(image_ref)
+        except Exception:
+            return None
     
     def _create_zip(
         self,
@@ -562,22 +648,15 @@ class PreviewGenerator:
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             for idx, emoticon in enumerate(emoticons, 1):
                 image_data = emoticon.get("image_data", "")
-                if image_data.startswith("data:"):
-                    _, data = image_data.split(",", 1)
-                    image_bytes = base64.b64decode(data)
-                else:
-                    image_bytes = base64.b64decode(image_data)
-                
-                filename = f"emoticon_{idx:02d}.{file_format}"
-                zf.writestr(filename, image_bytes)
+                image_bytes = self._get_image_bytes_from_ref(image_data)
+                if image_bytes:
+                    filename = f"emoticon_{idx:02d}.{file_format}"
+                    zf.writestr(filename, image_bytes)
             
             if icon:
-                if icon.startswith("data:"):
-                    _, data = icon.split(",", 1)
-                    icon_bytes = base64.b64decode(data)
-                else:
-                    icon_bytes = base64.b64decode(icon)
-                zf.writestr("icon.png", icon_bytes)
+                icon_bytes = self._get_image_bytes_from_ref(icon)
+                if icon_bytes:
+                    zf.writestr("icon.png", icon_bytes)
         
         return zip_buffer.getvalue()
     

@@ -43,7 +43,7 @@ class GenerateRequest(BaseModel):
 class GeneratedEmoticon(BaseModel):
     """생성된 이모티콘 정보"""
     index: int
-    image_data: str = Field(..., description="이미지 base64 데이터")
+    image_data: str = Field(..., description="이미지 URL (예: /image/{id})")
     file_extension: str
     width: int
     height: int
@@ -59,7 +59,7 @@ class GenerateResponse(BaseModel):
 
 class EmoticonImage(BaseModel):
     """이모티콘 이미지 (after-preview용)"""
-    image_data: str = Field(..., description="이미지 base64 또는 URL")
+    image_data: str = Field(..., description="이미지 URL (예: /image/{id}) 또는 base64")
     frames: Optional[List[str]] = Field(None, description="움직이는 이모티콘의 경우 프레임 이미지들")
 
 
