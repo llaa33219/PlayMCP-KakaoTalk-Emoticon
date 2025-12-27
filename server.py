@@ -88,23 +88,23 @@ async def mcp_metadata():
         "tools": [
             {
                 "name": "before_preview_tool",
-                "description": "이모티콘 제작 이전 프리뷰. 카카오톡 채팅방과 같은 디자인의 페이지에서 제작할 이모티콘의 계획을 테스트 해 볼 수 있습니다."
+                "description": "[STEP 1/4] Pre-production Preview - Generate text-based KakaoTalk chat preview to validate emoticon plans BEFORE image generation. Use FIRST in workflow."
             },
             {
                 "name": "generate_tool",
-                "description": "이모티콘 생성. 캐릭터 이미지와 이모티콘 설명을 기반으로 AI가 이모티콘을 생성합니다. 허깅페이스 토큰은 Authorization 헤더(Bearer)로 안전하게 전달할 수 있습니다."
+                "description": "[STEP 2/4] AI Emoticon Generator - Create actual emoticon images using AI from character reference and descriptions. Supports static PNG and animated WebP. Requires HuggingFace token via Authorization header or parameter."
             },
             {
                 "name": "after_preview_tool",
-                "description": "완성본 프리뷰. 완성된 이모티콘을 카카오톡 채팅방과 같은 디자인의 페이지에서 테스트 해 볼 수 있습니다."
+                "description": "[STEP 3/4] Final Preview - Display generated emoticons in KakaoTalk chat simulation with download option (ZIP). Use AFTER generate_tool."
             },
             {
                 "name": "check_tool",
-                "description": "이모티콘 사양 검사. 이모티콘이 카카오톡 제출 규격에 맞는지 검사합니다."
+                "description": "[STEP 4/4] Specification Validator - Verify emoticons meet KakaoTalk submission requirements (format, dimensions, file size, count). Use BEFORE submission."
             },
             {
                 "name": "get_specs_tool",
-                "description": "이모티콘 사양 정보 조회. 각 이모티콘 타입별 제출 규격 정보를 반환합니다."
+                "description": "[REFERENCE] Specification Lookup - Query KakaoTalk emoticon requirements for any type (static, dynamic, big, static-mini, dynamic-mini). Use ANYTIME for technical reference."
             }
         ]
     }
@@ -159,9 +159,25 @@ def _register_tools(mcp):
     """MCP 도구들을 등록"""
     
     @mcp.tool(
-        description="이모티콘 제작 이전 프리뷰. 카카오톡 채팅방과 같은 디자인의 페이지에서 "
-                    "이모티콘 이미지 없이 이모티콘은 글자로 표기되어 테스트 할 수 있는 프리뷰 페이지 URL을 반환합니다. "
-                    "이모티콘 기획/계획 단계에서 사용합니다."
+        description="""
+[STEP 1/4 - Planning Phase] Pre-production Preview Tool (제작 전 프리뷰)
+
+PURPOSE: Generate a KakaoTalk-style chat preview page with TEXT PLACEHOLDERS instead of actual images.
+Use this BEFORE generating any emoticon images to validate the concept and plan.
+
+WORKFLOW POSITION: Use this tool FIRST in the emoticon creation workflow.
+
+INPUT:
+- emoticon_type: Type of emoticon set (static, dynamic, big, static-mini, dynamic-mini)
+- title: Name of the emoticon set
+- plans: Array of {description: string, file_type: string} for each planned emoticon
+
+OUTPUT:
+- preview_url: URL to view the text-based preview in KakaoTalk chat style
+- total_count: Number of planned emoticons
+
+USE CASE: When user wants to plan/brainstorm emoticon ideas before actual image generation.
+"""
     )
     async def before_preview_tool(
         emoticon_type: str,
@@ -181,11 +197,31 @@ def _register_tools(mcp):
         return response.model_dump()
 
     @mcp.tool(
-        description="이모티콘 생성. 캐릭터 이미지와 이모티콘 설명을 기반으로 AI가 이모티콘을 생성합니다. "
-                    "캐릭터 이미지가 없으면 자동으로 생성합니다. "
-                    "움직이는 이모티콘은 비디오 생성 후 애니메이션 WebP로 변환됩니다. "
-                    "허깅페이스 토큰은 Authorization 헤더(Bearer 토큰)로 안전하게 전달하거나, "
-                    "hf_token 파라미터로 직접 전달할 수 있습니다."
+        description="""
+[STEP 2/4 - Generation Phase] AI Emoticon Generator (AI 이모티콘 생성기)
+
+PURPOSE: Generate actual emoticon images using AI based on character reference and descriptions.
+This is the MAIN PRODUCTION tool that creates the emoticon images.
+
+WORKFLOW POSITION: Use AFTER before_preview_tool when the plan is confirmed.
+
+INPUT:
+- emoticon_type: Type of emoticon (determines size, format, animation)
+- emoticons: Array of {description: string, file_extension: string} - detailed description for each emoticon
+- character_image (optional): Base64 or URL of reference character image. If omitted, AI generates a new character.
+- hf_token (optional): Hugging Face API token. Can also be passed via Authorization header (Bearer token).
+
+OUTPUT:
+- emoticons: Array of generated images with base64 data, dimensions, file size
+- icon: Auto-generated icon image (78x78 PNG) based on first emoticon
+- emoticon_type: Confirmed type used for generation
+
+BEHAVIOR:
+- Static emoticons (static, static-mini): Generates PNG images
+- Animated emoticons (dynamic, dynamic-mini, big): Generates video → converts to animated WebP
+
+USE CASE: When ready to produce actual emoticon images after planning phase.
+"""
     )
     async def generate_tool(
         emoticon_type: str,
@@ -218,8 +254,26 @@ def _register_tools(mcp):
         return response.model_dump()
 
     @mcp.tool(
-        description="완성본 프리뷰. 실제 이모티콘 이미지가 포함된 카카오톡 채팅방 스타일 프리뷰 페이지를 생성합니다. "
-                    "완성된 이모티콘은 zip으로 다운로드 할 수 있습니다."
+        description="""
+[STEP 3/4 - Preview Phase] Final Preview with Real Images (완성본 프리뷰)
+
+PURPOSE: Generate a KakaoTalk-style chat preview page with ACTUAL EMOTICON IMAGES.
+Allows user to see how emoticons look in a real chat environment and download them.
+
+WORKFLOW POSITION: Use AFTER generate_tool when images are ready.
+
+INPUT:
+- emoticon_type: Type of emoticon set
+- title: Name of the emoticon set
+- emoticons: Array of {image_data: base64/URL, frames?: array} for each emoticon
+- icon (optional): Icon image in base64 or URL format
+
+OUTPUT:
+- preview_url: URL to view emoticons in KakaoTalk chat simulation
+- download_url: URL to download all emoticons as a ZIP file ready for submission
+
+USE CASE: When user wants to preview generated emoticons in chat context and/or download them.
+"""
     )
     async def after_preview_tool(
         emoticon_type: str,
@@ -241,8 +295,37 @@ def _register_tools(mcp):
         return response.model_dump()
 
     @mcp.tool(
-        description="이모티콘 사양 검사. 이모티콘이 카카오톡 제출 규격에 맞는지 검사합니다. "
-                    "파일 형식, 이미지 크기, 파일 용량, 개수 등을 확인합니다."
+        description="""
+[STEP 4/4 - Validation Phase] KakaoTalk Specification Checker (카카오톡 규격 검사기)
+
+PURPOSE: Validate emoticons against KakaoTalk's official submission requirements.
+Ensures emoticons meet all technical specifications before submission.
+
+WORKFLOW POSITION: Use as FINAL step before submitting to KakaoTalk Emoticon Studio.
+
+INPUT:
+- emoticon_type: Type of emoticon to validate against
+- emoticons: Array of {file_data: base64, filename?: string} to check
+- icon (optional): Icon image to validate
+
+OUTPUT:
+- is_valid: Boolean indicating if ALL checks passed
+- issues: Array of problems found, each with:
+  - index: Which emoticon has the issue (-1 for icon, -2 for overall)
+  - issue_type: Category (size, format, dimension, count)
+  - message: Human-readable description
+  - current_value / expected_value: Comparison data
+- checked_count: Number of emoticons validated
+
+VALIDATION CHECKS:
+- File format (PNG for static, WebP for animated)
+- Image dimensions (360x360, 180x180, or 540x540 depending on type)
+- File size limits (varies by type: 100KB~1MB)
+- Emoticon count (16~42 depending on type)
+- Icon specifications (78x78 PNG, max 16KB)
+
+USE CASE: Quality assurance before KakaoTalk submission, or to diagnose why emoticons might be rejected.
+"""
     )
     async def check_tool(
         emoticon_type: str,
@@ -262,7 +345,37 @@ def _register_tools(mcp):
         return response.model_dump()
 
     @mcp.tool(
-        description="이모티콘 사양 정보 조회. 각 이모티콘 타입별 제출 규격 정보를 반환합니다."
+        description="""
+[REFERENCE] KakaoTalk Emoticon Specifications (카카오톡 이모티콘 사양 정보)
+
+PURPOSE: Retrieve official KakaoTalk emoticon submission specifications.
+Use this to understand requirements BEFORE starting the creation workflow.
+
+WORKFLOW POSITION: Use ANYTIME to reference technical requirements.
+
+INPUT:
+- emoticon_type (optional): Specific type to query. If omitted, returns ALL types.
+
+OUTPUT (for each type):
+- type: Emoticon type identifier
+- type_name: Korean name (멈춰있는 이모티콘, 움직이는 이모티콘, etc.)
+- count: Required number of emoticons (16, 24, 32, 35, or 42)
+- format: Required file format (PNG or WebP)
+- sizes: Allowed dimensions [{width, height}]
+- max_size_kb: Maximum file size per emoticon
+- icon_size: Required icon dimensions (78x78)
+- icon_max_size_kb: Maximum icon file size (16KB)
+- is_animated: Whether this type supports animation
+
+AVAILABLE TYPES:
+- static: 멈춰있는 이모티콘 (32 PNG, 360x360, max 150KB)
+- dynamic: 움직이는 이모티콘 (24 WebP, 360x360, max 650KB)
+- big: 큰 이모티콘 (16 WebP, up to 540x540, max 1MB)
+- static-mini: 멈춰있는 미니 (42 PNG, 180x180, max 100KB)
+- dynamic-mini: 움직이는 미니 (35 WebP, 180x180, max 500KB)
+
+USE CASE: Planning phase to understand constraints, or debugging validation failures.
+"""
     )
     async def get_specs_tool(
         emoticon_type: Optional[str] = None
