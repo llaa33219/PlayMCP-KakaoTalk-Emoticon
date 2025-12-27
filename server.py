@@ -39,8 +39,47 @@ def _get_mcp():
     return _mcp
 
 
-# FastAPI 앱 생성
-app = FastAPI(title="카카오 이모티콘 MCP 서버")
+# MCP 앱을 먼저 초기화하여 lifespan을 가져옴
+_mcp_app = None
+_mcp_transport_type = None
+
+try:
+    import traceback
+    print("Initializing MCP server...")
+    mcp_instance = _get_mcp()
+    print("MCP instance created, checking available app methods...")
+    
+    if hasattr(mcp_instance, 'streamable_http_app'):
+        try:
+            _mcp_app = mcp_instance.streamable_http_app(path='/')
+        except TypeError:
+            _mcp_app = mcp_instance.streamable_http_app()
+        _mcp_transport_type = "Streamable HTTP"
+    elif hasattr(mcp_instance, 'http_app'):
+        try:
+            _mcp_app = mcp_instance.http_app(path='/')
+        except TypeError:
+            _mcp_app = mcp_instance.http_app()
+        _mcp_transport_type = "HTTP"
+    elif hasattr(mcp_instance, 'sse_app'):
+        _mcp_app = mcp_instance.sse_app()
+        _mcp_transport_type = "SSE"
+    else:
+        raise AttributeError("FastMCP instance has no supported app method")
+    
+    print(f"MCP app created - {_mcp_transport_type} transport")
+except Exception as e:
+    print(f"Warning: MCP initialization failed: {e}")
+    traceback.print_exc()
+    print("Server will continue running without MCP support")
+
+# MCP 앱의 lifespan을 사용하여 FastAPI 앱 생성
+if _mcp_app is not None and hasattr(_mcp_app, 'lifespan'):
+    app = FastAPI(title="카카오 이모티콘 MCP 서버", lifespan=_mcp_app.lifespan)
+    print("FastAPI app created with MCP lifespan")
+else:
+    app = FastAPI(title="카카오 이모티콘 MCP 서버")
+    print("FastAPI app created without MCP lifespan")
 
 # CORS 설정 추가 (외부 MCP 클라이언트 접근 허용)
 app.add_middleware(
@@ -343,46 +382,12 @@ async def get_download(download_id: str):
     return Response(content="Download not found", status_code=404)
 
 
-# MCP 앱을 루트에 마운트 (PlayMCP가 루트로 요청을 보냄)
-# try-except로 감싸서 MCP 초기화 실패해도 서버는 시작되도록 함
-try:
-    import traceback
-    print("Initializing MCP server...")
-    mcp_instance = _get_mcp()
-    print("MCP instance created, checking available app methods...")
-    
-    # FastMCP 버전에 따라 사용 가능한 메서드가 다름
-    # streamable_http_app() -> http_app() -> sse_app() 순으로 시도
-    mcp_app = None
-    transport_type = None
-    
-    if hasattr(mcp_instance, 'streamable_http_app'):
-        # streamable_http_app은 path 파라미터를 지원할 수 있음
-        try:
-            mcp_app = mcp_instance.streamable_http_app(path='/')
-        except TypeError:
-            mcp_app = mcp_instance.streamable_http_app()
-        transport_type = "Streamable HTTP"
-    elif hasattr(mcp_instance, 'http_app'):
-        # http_app은 기본적으로 /mcp/ 경로를 사용하므로 path='/' 설정 필요
-        try:
-            mcp_app = mcp_instance.http_app(path='/')
-        except TypeError:
-            mcp_app = mcp_instance.http_app()
-        transport_type = "HTTP"
-    elif hasattr(mcp_instance, 'sse_app'):
-        mcp_app = mcp_instance.sse_app()
-        transport_type = "SSE"
-    else:
-        raise AttributeError("FastMCP instance has no supported app method (streamable_http_app, http_app, or sse_app)")
-    
-    # 모든 명시적 라우트 정의 후에 마운트해야 기존 엔드포인트가 우선됨
-    app.mount("/", mcp_app)
-    print(f"MCP server initialized - {transport_type} endpoint available at root")
-except Exception as e:
-    print(f"Warning: MCP initialization failed: {e}")
-    traceback.print_exc()
-    print("Server will continue running without MCP support")
+# MCP 앱을 루트에 마운트 (모든 라우트 정의 후에 마운트해야 기존 엔드포인트가 우선됨)
+if _mcp_app is not None:
+    app.mount("/", _mcp_app)
+    print(f"MCP server initialized - {_mcp_transport_type} endpoint available at root")
+else:
+    print("MCP app not available - server running without MCP support")
 
 
 if __name__ == "__main__":
