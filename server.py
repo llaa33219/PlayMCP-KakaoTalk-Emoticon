@@ -70,8 +70,8 @@ async def mcp_metadata():
         },
         "description": "카카오톡 이모티콘 제작 자동화 MCP 서버. 이모티콘 기획 프리뷰, AI 이미지 생성, 완성본 프리뷰, 사양 검사 기능을 제공합니다.",
         "transport": {
-            "type": "sse",
-            "endpoint": "/sse"
+            "type": "streamable-http",
+            "endpoint": "/"
         },
         "capabilities": {
             "tools": {"listChanged": False},
@@ -111,7 +111,7 @@ async def root():
         "description": "카카오톡 이모티콘 제작 자동화 MCP 서버",
         "version": "1.0.0",
         "endpoints": {
-            "mcp_sse": "/sse",
+            "mcp": "/",
             "health": "/health",
             "preview": "/preview/{preview_id}",
             "download": "/download/{download_id}"
@@ -343,15 +343,17 @@ async def get_download(download_id: str):
     return Response(content="Download not found", status_code=404)
 
 
-# MCP SSE 앱을 루트에 마운트 (모든 명시적 라우트 정의 후에 마운트해야 함)
+# MCP Streamable HTTP 앱을 루트에 마운트 (PlayMCP가 루트로 POST 요청을 보냄)
 # try-except로 감싸서 MCP 초기화 실패해도 서버는 시작되도록 함
 try:
     import traceback
     print("Initializing MCP server...")
     mcp_instance = _get_mcp()
-    print("MCP instance created, mounting SSE app...")
-    app.mount("/", mcp_instance.sse_app())
-    print("MCP server initialized - SSE endpoint available at: /sse")
+    print("MCP instance created, mounting HTTP app...")
+    # Streamable HTTP 방식 지원을 위해 http_app() 사용
+    # 모든 명시적 라우트 정의 후에 마운트해야 기존 엔드포인트가 우선됨
+    app.mount("/", mcp_instance.http_app())
+    print("MCP server initialized - Streamable HTTP endpoint available at root")
 except Exception as e:
     print(f"Warning: MCP initialization failed: {e}")
     traceback.print_exc()
