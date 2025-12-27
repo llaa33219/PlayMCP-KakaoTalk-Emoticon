@@ -1,15 +1,15 @@
 """
 MCP 요청/응답을 위한 Pydantic 모델 정의
 """
-from typing import Optional, List
+from typing import Optional, List, Union
 from pydantic import BaseModel, Field
-from src.constants import EmoticonType
+from src.constants import EmoticonType, FileType, FileExtension
 
 
 class EmoticonPlan(BaseModel):
     """개별 이모티콘 기획"""
-    description: str = Field(..., description="이모티콘 설명 (간략하게)")
-    file_type: str = Field(..., description="이모티콘 파일 타입 (PNG/WebP)")
+    description: str = Field(..., description="이모티콘 설명 (예: '손 흔드는 고양이', '화난 고양이')")
+    file_type: FileType = Field(..., description="파일 형식 (PNG 또는 WebP)")
 
 
 class BeforePreviewRequest(BaseModel):
@@ -22,15 +22,15 @@ class BeforePreviewRequest(BaseModel):
 class BeforePreviewResponse(BaseModel):
     """before-preview 응답 모델"""
     preview_url: str = Field(..., description="프리뷰 페이지 URL")
-    emoticon_type: EmoticonType
+    emoticon_type: Union[EmoticonType, str] = Field(..., description="이모티콘 타입")
     title: str
     total_count: int = Field(..., description="계획된 이모티콘 총 개수")
 
 
 class EmoticonGenerateItem(BaseModel):
     """개별 이모티콘 생성 요청"""
-    description: str = Field(..., description="이모티콘 상황, 배치 등 자세한 설명")
-    file_extension: str = Field(..., description="파일 확장자 (png/webp)")
+    description: str = Field(..., description="이모티콘 상황/표정/포즈 설명 (예: '신나서 점프하는 고양이', '자는 고양이')")
+    file_extension: FileExtension = Field(..., description="파일 확장자 (png 또는 webp)")
 
 
 class GenerateRequest(BaseModel):
@@ -54,7 +54,7 @@ class GenerateResponse(BaseModel):
     """generate 응답 모델"""
     emoticons: List[GeneratedEmoticon]
     icon: GeneratedEmoticon = Field(..., description="이모티콘 아이콘")
-    emoticon_type: EmoticonType
+    emoticon_type: Union[EmoticonType, str] = Field(..., description="이모티콘 타입")
 
 
 class EmoticonImage(BaseModel):
@@ -75,7 +75,7 @@ class AfterPreviewResponse(BaseModel):
     """after-preview 응답 모델"""
     preview_url: str = Field(..., description="프리뷰 페이지 URL")
     download_url: str = Field(..., description="ZIP 다운로드 URL")
-    emoticon_type: EmoticonType
+    emoticon_type: Union[EmoticonType, str] = Field(..., description="이모티콘 타입")
     title: str
 
 
@@ -105,5 +105,5 @@ class CheckResponse(BaseModel):
     """check 응답 모델"""
     is_valid: bool = Field(..., description="모든 검사 통과 여부")
     issues: List[CheckIssue] = Field(default_factory=list, description="발견된 이슈 목록")
-    emoticon_type: EmoticonType
+    emoticon_type: Union[EmoticonType, str] = Field(..., description="이모티콘 타입")
     checked_count: int = Field(..., description="검사한 이모티콘 개수")

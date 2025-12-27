@@ -3,6 +3,10 @@ MCP 도구 스키마 정의
 
 AI가 도구를 발견하고 사용할 때 필요한 메타데이터를 정의합니다.
 /.well-known/mcp 엔드포인트와 도구 등록에서 공통으로 사용합니다.
+
+이 파일의 스키마는 /.well-known/mcp 엔드포인트용입니다.
+실제 AI가 보는 스키마는 FastMCP가 자동 생성하며,
+server.py의 도구 함수에서 Annotated[EmoticonType, Field(...)] 형식으로 정의됩니다.
 """
 from typing import List, Dict, Any
 

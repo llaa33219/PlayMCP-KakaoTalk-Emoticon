@@ -5,7 +5,7 @@ import io
 from typing import List, Optional, Tuple
 from PIL import Image
 
-from src.constants import EMOTICON_SPECS, EmoticonType, EmoticonSpec
+from src.constants import EmoticonType, get_emoticon_spec, EmoticonSpec
 from src.image_utils import decode_base64_image
 from src.models import CheckIssue
 
@@ -15,7 +15,7 @@ class EmoticonChecker:
     
     def check_emoticons(
         self,
-        emoticon_type: EmoticonType,
+        emoticon_type: EmoticonType | str,
         emoticons: List[bytes],
         icon: Optional[bytes] = None
     ) -> Tuple[bool, List[CheckIssue]]:
@@ -23,14 +23,14 @@ class EmoticonChecker:
         이모티콘 사양 검사
         
         Args:
-            emoticon_type: 이모티콘 타입
+            emoticon_type: 이모티콘 타입 (Enum 또는 문자열)
             emoticons: 이모티콘 이미지 바이트 목록
             icon: 아이콘 이미지 바이트 (선택)
             
         Returns:
             (검사 통과 여부, 이슈 목록) 튜플
         """
-        spec = EMOTICON_SPECS[emoticon_type]
+        spec = get_emoticon_spec(emoticon_type)
         issues: List[CheckIssue] = []
         
         # 개수 검사
@@ -61,7 +61,7 @@ class EmoticonChecker:
     def _check_single_emoticon(
         self,
         image_bytes: bytes,
-        spec: EmoticonSpec,
+        spec: "EmoticonSpec",
         index: int
     ) -> List[CheckIssue]:
         """단일 이모티콘 검사"""
@@ -135,7 +135,7 @@ class EmoticonChecker:
     def _check_icon(
         self,
         image_bytes: bytes,
-        spec: EmoticonSpec
+        spec: "EmoticonSpec"
     ) -> List[CheckIssue]:
         """아이콘 검사"""
         issues: List[CheckIssue] = []

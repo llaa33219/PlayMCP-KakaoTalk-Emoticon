@@ -5,12 +5,13 @@
 PlayMCP에서 호스팅되며, 허깅페이스 계정 연동을 통해 이미지 생성 API를 사용합니다.
 """
 import os
-from typing import List, Optional
+from typing import List, Optional, Annotated
 
 # FastAPI 관련 임포트만 최상위에 유지 (빠른 헬스체크를 위해)
 from fastapi import FastAPI, Response
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import Field
 
 
 # MCP 관련 전역 변수 (하단에서 초기화)
@@ -139,22 +140,25 @@ async def get_download(download_id: str):
 # ===== MCP 도구 등록 함수 (MCP 초기화 전에 정의되어야 함) =====
 def _register_tools(mcp):
     """MCP 도구들을 등록"""
+    from src.constants import EmoticonType, FileType, FileExtension
+    from src.models import EmoticonPlan, EmoticonGenerateItem, EmoticonImage, CheckEmoticonItem
     
     @mcp.tool(
         description="[2단계] 제작 전 프리뷰 생성. 트리거: get_specs_tool 호출 후 사용자가 캐릭터/분위기를 알려주면 호출. AI가 타입별 개수(16~42개)만큼 이모티콘 설명을 직접 창작합니다."
     )
     async def before_preview_tool(
-        emoticon_type: str,
-        title: str,
-        plans: List[dict]
+        emoticon_type: Annotated[EmoticonType, Field(description="이모티콘 타입: static(멈춰있는, 32개), dynamic(움직이는, 24개), big(큰, 16개), static-mini(멈춰있는 미니, 42개), dynamic-mini(움직이는 미니, 35개)")],
+        title: Annotated[str, Field(description="이모티콘 세트 제목 (예: '귀여운 고양이 이모티콘')")],
+        plans: Annotated[List[EmoticonPlan], Field(description="각 이모티콘 기획 목록. AI가 타입별 개수만큼 직접 창작. 각 항목은 description(설명)과 file_type(PNG/WebP) 포함")]
     ) -> dict:
-        from src.models import BeforePreviewRequest, EmoticonPlan
+        """제작 전 프리뷰를 생성합니다. 카카오톡 채팅방 스타일로 이모티콘 기획을 미리보기합니다."""
+        from src.models import BeforePreviewRequest
         from src.tools import before_preview
         
         request = BeforePreviewRequest(
             emoticon_type=emoticon_type,
             title=title,
-            plans=[EmoticonPlan(**p) for p in plans]
+            plans=plans
         )
         
         response = await before_preview(request)
@@ -164,12 +168,13 @@ def _register_tools(mcp):
         description="[3단계] AI 이모티콘 이미지 생성. 트리거: before_preview_tool 호출 후 자동으로 호출. 캐릭터 이미지 없으면 AI가 자동 생성합니다."
     )
     async def generate_tool(
-        emoticon_type: str,
-        emoticons: List[dict],
-        character_image: Optional[str] = None,
-        hf_token: Optional[str] = None
+        emoticon_type: Annotated[EmoticonType, Field(description="이모티콘 타입: static(멈춰있는, 32개), dynamic(움직이는, 24개), big(큰, 16개), static-mini(멈춰있는 미니, 42개), dynamic-mini(움직이는 미니, 35개)")],
+        emoticons: Annotated[List[EmoticonGenerateItem], Field(description="생성할 이모티콘 목록. 각 항목은 description(상황/표정 설명)과 file_extension(png/webp) 포함")],
+        character_image: Annotated[Optional[str], Field(description="캐릭터 참조 이미지 (Base64 또는 URL). 생략 시 AI가 자동 생성")] = None,
+        hf_token: Annotated[Optional[str], Field(description="Hugging Face API 토큰. Authorization 헤더로도 전달 가능")] = None
     ) -> dict:
-        from src.models import GenerateRequest, EmoticonGenerateItem
+        """AI를 사용하여 이모티콘 이미지를 생성합니다."""
+        from src.models import GenerateRequest
         from src.tools import generate
         
         # Authorization 헤더에서 토큰 추출 시도, 없으면 파라미터 사용
@@ -187,7 +192,7 @@ def _register_tools(mcp):
         request = GenerateRequest(
             emoticon_type=emoticon_type,
             character_image=character_image,
-            emoticons=[EmoticonGenerateItem(**e) for e in emoticons]
+            emoticons=emoticons
         )
         
         response = await generate(request, token)
@@ -197,18 +202,19 @@ def _register_tools(mcp):
         description="[4단계] 완성본 프리뷰 생성. 트리거: generate_tool 호출 후 자동으로 호출. 카카오톡 스타일 프리뷰와 ZIP 다운로드 URL을 제공합니다."
     )
     async def after_preview_tool(
-        emoticon_type: str,
-        title: str,
-        emoticons: List[dict],
-        icon: Optional[str] = None
+        emoticon_type: Annotated[EmoticonType, Field(description="이모티콘 타입: static, dynamic, big, static-mini, dynamic-mini")],
+        title: Annotated[str, Field(description="이모티콘 세트 제목")],
+        emoticons: Annotated[List[EmoticonImage], Field(description="이모티콘 이미지 목록. 각 항목은 image_data(Base64 또는 URL) 포함")],
+        icon: Annotated[Optional[str], Field(description="아이콘 이미지 (Base64 또는 URL)")] = None
     ) -> dict:
-        from src.models import AfterPreviewRequest, EmoticonImage
+        """완성된 이모티콘의 프리뷰를 생성하고 ZIP 다운로드 URL을 제공합니다."""
+        from src.models import AfterPreviewRequest
         from src.tools import after_preview
         
         request = AfterPreviewRequest(
             emoticon_type=emoticon_type,
             title=title,
-            emoticons=[EmoticonImage(**e) for e in emoticons],
+            emoticons=emoticons,
             icon=icon
         )
         
@@ -219,17 +225,18 @@ def _register_tools(mcp):
         description="[5단계] 카카오톡 규격 검사. 트리거: after_preview_tool 호출 후 자동으로 호출하여 제출 규격 검증. 문제 발견 시 사용자에게 안내."
     )
     async def check_tool(
-        emoticon_type: str,
-        emoticons: List[dict],
-        icon: Optional[dict] = None
+        emoticon_type: Annotated[EmoticonType, Field(description="검증할 이모티콘 타입: static, dynamic, big, static-mini, dynamic-mini")],
+        emoticons: Annotated[List[CheckEmoticonItem], Field(description="검사할 이모티콘 목록. 각 항목은 file_data(Base64 인코딩) 포함")],
+        icon: Annotated[Optional[CheckEmoticonItem], Field(description="검사할 아이콘 이미지 (선택사항)")] = None
     ) -> dict:
-        from src.models import CheckRequest, CheckEmoticonItem
+        """이모티콘이 카카오톡 제출 규격에 맞는지 검사합니다."""
+        from src.models import CheckRequest
         from src.tools import check
         
         request = CheckRequest(
             emoticon_type=emoticon_type,
-            emoticons=[CheckEmoticonItem(**e) for e in emoticons],
-            icon=CheckEmoticonItem(**icon) if icon else None
+            emoticons=emoticons,
+            icon=icon
         )
         
         response = await check(request)
@@ -239,15 +246,16 @@ def _register_tools(mcp):
         description="[1단계] 카카오톡 이모티콘 사양 조회. 트리거: 사용자가 '이모티콘', '스티커', '카카오톡' 등을 언급하면 즉시 이 도구부터 호출하세요. 타입별 개수, 파일 형식, 크기 제한을 반환합니다."
     )
     async def get_specs_tool(
-        emoticon_type: Optional[str] = None
+        emoticon_type: Annotated[Optional[EmoticonType], Field(description="조회할 이모티콘 타입: static(멈춰있는), dynamic(움직이는), big(큰), static-mini(멈춰있는 미니), dynamic-mini(움직이는 미니). 생략 시 모든 타입 반환")] = None
     ) -> dict:
+        """카카오톡 이모티콘 사양(타입별 개수, 파일 형식, 크기 제한)을 조회합니다."""
         from src.constants import EMOTICON_SPECS, EMOTICON_TYPE_NAMES
         
         if emoticon_type:
             spec = EMOTICON_SPECS.get(emoticon_type)
             if spec:
                 return {
-                    "type": spec.type,
+                    "type": spec.type.value,
                     "type_name": EMOTICON_TYPE_NAMES[spec.type],
                     "count": spec.count,
                     "format": spec.format,
@@ -261,8 +269,8 @@ def _register_tools(mcp):
         
         all_specs = {}
         for etype, spec in EMOTICON_SPECS.items():
-            all_specs[etype] = {
-                "type": spec.type,
+            all_specs[etype.value] = {
+                "type": spec.type.value,
                 "type_name": EMOTICON_TYPE_NAMES[spec.type],
                 "count": spec.count,
                 "format": spec.format,

@@ -8,7 +8,7 @@ import io
 from typing import List, Optional, Dict, Any
 from jinja2 import Template
 
-from src.constants import EMOTICON_SPECS, EMOTICON_TYPE_NAMES, EmoticonType
+from src.constants import EMOTICON_SPECS, EMOTICON_TYPE_NAMES, EmoticonType, get_emoticon_spec
 
 
 # before-preview 템플릿 (기획 단계)
@@ -442,7 +442,7 @@ class PreviewGenerator:
     
     def generate_before_preview(
         self,
-        emoticon_type: EmoticonType,
+        emoticon_type: EmoticonType | str,
         title: str,
         plans: List[Dict[str, str]]
     ) -> str:
@@ -450,15 +450,17 @@ class PreviewGenerator:
         before-preview 페이지 생성
         
         Args:
-            emoticon_type: 이모티콘 타입
+            emoticon_type: 이모티콘 타입 (Enum 또는 문자열)
             title: 이모티콘 제목
             plans: 이모티콘 기획 목록 [{description, file_type}, ...]
             
         Returns:
             프리뷰 페이지 URL 또는 data URL
         """
-        spec = EMOTICON_SPECS[emoticon_type]
-        emoticon_type_name = EMOTICON_TYPE_NAMES[emoticon_type]
+        spec = get_emoticon_spec(emoticon_type)
+        # Enum을 문자열로 변환하여 EMOTICON_TYPE_NAMES 조회
+        type_key = EmoticonType(emoticon_type) if isinstance(emoticon_type, str) else emoticon_type
+        emoticon_type_name = EMOTICON_TYPE_NAMES[type_key]
         
         template = Template(BEFORE_PREVIEW_TEMPLATE)
         html_content = template.render(
@@ -480,7 +482,7 @@ class PreviewGenerator:
     
     def generate_after_preview(
         self,
-        emoticon_type: EmoticonType,
+        emoticon_type: EmoticonType | str,
         title: str,
         emoticons: List[Dict[str, Any]],
         icon: Optional[str] = None
@@ -489,7 +491,7 @@ class PreviewGenerator:
         after-preview 페이지 생성
         
         Args:
-            emoticon_type: 이모티콘 타입
+            emoticon_type: 이모티콘 타입 (Enum 또는 문자열)
             title: 이모티콘 제목
             emoticons: 이모티콘 이미지 목록 [{image_data}, ...]
             icon: 아이콘 이미지 (base64 또는 URL)
@@ -497,8 +499,10 @@ class PreviewGenerator:
         Returns:
             (프리뷰 페이지 URL, ZIP 다운로드 URL) 튜플
         """
-        spec = EMOTICON_SPECS[emoticon_type]
-        emoticon_type_name = EMOTICON_TYPE_NAMES[emoticon_type]
+        spec = get_emoticon_spec(emoticon_type)
+        # Enum을 문자열로 변환하여 EMOTICON_TYPE_NAMES 조회
+        type_key = EmoticonType(emoticon_type) if isinstance(emoticon_type, str) else emoticon_type
+        emoticon_type_name = EMOTICON_TYPE_NAMES[type_key]
         
         # ZIP 파일 생성
         download_id = str(uuid.uuid4())

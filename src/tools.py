@@ -2,9 +2,9 @@
 MCP 도구 구현
 """
 import os
-from typing import List, Optional
+from typing import List, Optional, Union
 
-from src.constants import EMOTICON_SPECS, EMOTICON_TYPE_NAMES, EmoticonType
+from src.constants import EMOTICON_SPECS, EMOTICON_TYPE_NAMES, EmoticonType, get_emoticon_spec
 from src.models import (
     BeforePreviewRequest, BeforePreviewResponse,
     GenerateRequest, GenerateResponse, GeneratedEmoticon,
@@ -30,20 +30,23 @@ async def before_preview(request: BeforePreviewRequest) -> BeforePreviewResponse
     """
     generator = get_preview_generator(os.environ.get("BASE_URL", ""))
     
+    # Enum을 문자열로 변환
+    emoticon_type_str = request.emoticon_type.value if isinstance(request.emoticon_type, EmoticonType) else request.emoticon_type
+    
     plans = [
-        {"description": plan.description, "file_type": plan.file_type}
+        {"description": plan.description, "file_type": plan.file_type.value if hasattr(plan.file_type, 'value') else plan.file_type}
         for plan in request.plans
     ]
     
     preview_url = generator.generate_before_preview(
-        emoticon_type=request.emoticon_type,
+        emoticon_type=emoticon_type_str,
         title=request.title,
         plans=plans
     )
     
     return BeforePreviewResponse(
         preview_url=preview_url,
-        emoticon_type=request.emoticon_type,
+        emoticon_type=emoticon_type_str,
         title=request.title,
         total_count=len(request.plans)
     )
@@ -60,7 +63,8 @@ async def generate(
     캐릭터 이미지가 없으면 먼저 캐릭터를 생성합니다.
     움직이는 이모티콘은 비디오를 생성한 후 WebP로 변환합니다.
     """
-    spec = EMOTICON_SPECS[request.emoticon_type]
+    spec = get_emoticon_spec(request.emoticon_type)
+    emoticon_type_str = request.emoticon_type.value if isinstance(request.emoticon_type, EmoticonType) else request.emoticon_type
     hf_client = get_hf_client(hf_token)
     
     # 캐릭터 이미지 준비
@@ -114,7 +118,7 @@ async def generate(
         generated_emoticons.append(GeneratedEmoticon(
             index=idx,
             image_data=encode_base64_image(image_bytes, mime_type),
-            file_extension=emoticon_item.file_extension,
+            file_extension=emoticon_item.file_extension.value if hasattr(emoticon_item.file_extension, 'value') else emoticon_item.file_extension,
             width=width,
             height=height,
             size_kb=round(size_kb, 2)
@@ -141,7 +145,7 @@ async def generate(
     return GenerateResponse(
         emoticons=generated_emoticons,
         icon=icon,
-        emoticon_type=request.emoticon_type
+        emoticon_type=emoticon_type_str
     )
 
 
@@ -153,6 +157,7 @@ async def after_preview(request: AfterPreviewRequest) -> AfterPreviewResponse:
     ZIP 다운로드 URL을 반환합니다.
     """
     generator = get_preview_generator(os.environ.get("BASE_URL", ""))
+    emoticon_type_str = request.emoticon_type.value if isinstance(request.emoticon_type, EmoticonType) else request.emoticon_type
     
     emoticons = [
         {"image_data": emoticon.image_data, "frames": emoticon.frames}
@@ -160,7 +165,7 @@ async def after_preview(request: AfterPreviewRequest) -> AfterPreviewResponse:
     ]
     
     preview_url, download_url = generator.generate_after_preview(
-        emoticon_type=request.emoticon_type,
+        emoticon_type=emoticon_type_str,
         title=request.title,
         emoticons=emoticons,
         icon=request.icon
@@ -169,7 +174,7 @@ async def after_preview(request: AfterPreviewRequest) -> AfterPreviewResponse:
     return AfterPreviewResponse(
         preview_url=preview_url,
         download_url=download_url,
-        emoticon_type=request.emoticon_type,
+        emoticon_type=emoticon_type_str,
         title=request.title
     )
 
@@ -182,6 +187,7 @@ async def check(request: CheckRequest) -> CheckResponse:
     파일 형식, 크기, 개수 등을 검사합니다.
     """
     checker = get_checker()
+    emoticon_type_str = request.emoticon_type.value if isinstance(request.emoticon_type, EmoticonType) else request.emoticon_type
     
     # 이미지 바이트로 변환
     emoticon_bytes_list = []
@@ -194,7 +200,7 @@ async def check(request: CheckRequest) -> CheckResponse:
         icon_bytes = decode_base64_image(request.icon.file_data)
     
     is_valid, issues = checker.check_emoticons(
-        emoticon_type=request.emoticon_type,
+        emoticon_type=emoticon_type_str,
         emoticons=emoticon_bytes_list,
         icon=icon_bytes
     )
@@ -202,6 +208,6 @@ async def check(request: CheckRequest) -> CheckResponse:
     return CheckResponse(
         is_valid=is_valid,
         issues=issues,
-        emoticon_type=request.emoticon_type,
+        emoticon_type=emoticon_type_str,
         checked_count=len(request.emoticons)
     )
