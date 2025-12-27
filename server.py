@@ -187,27 +187,25 @@ def _register_tools(mcp):
         return response.model_dump()
 
     @mcp.tool(
-        description="[3단계] AI 이모티콘 이미지 생성. 트리거: before_preview_tool 호출 후 자동으로 호출. 캐릭터 이미지 없으면 AI가 자동 생성합니다."
+        description="[3단계] AI 이모티콘 이미지 생성. 트리거: before_preview_tool 호출 후 자동으로 호출. 캐릭터 이미지 없으면 AI가 자동 생성합니다. Hugging Face 토큰은 Authorization 헤더(Bearer 토큰)로 전달해야 합니다."
     )
     async def generate_tool(
         emoticon_type: Annotated[EmoticonType, Field(description="이모티콘 타입: static(멈춰있는, 32개), dynamic(움직이는, 24개), big(큰, 16개), static-mini(멈춰있는 미니, 42개), dynamic-mini(움직이는 미니, 35개)")],
         emoticons: Annotated[List[EmoticonGenerateItem], Field(description="생성할 이모티콘 목록. 각 항목은 description(상황/표정 설명)과 file_extension(png/webp) 포함")],
-        character_image: Annotated[Optional[str], Field(description="캐릭터 참조 이미지 (Base64 또는 URL). 생략 시 AI가 자동 생성")] = None,
-        hf_token: Annotated[Optional[str], Field(description="Hugging Face API 토큰. Authorization 헤더로도 전달 가능")] = None
+        character_image: Annotated[Optional[str], Field(description="캐릭터 참조 이미지 (Base64 또는 URL). 생략 시 AI가 자동 생성")] = None
     ) -> dict:
-        """AI를 사용하여 이모티콘 이미지를 생성합니다."""
+        """AI를 사용하여 이모티콘 이미지를 생성합니다. Hugging Face 토큰은 Authorization 헤더로 전달해야 합니다."""
         from src.models import GenerateRequest
         from src.tools import generate
         
-        # Authorization 헤더에서 토큰 추출 시도, 없으면 파라미터 사용
-        # 우선순위: Authorization 헤더 > hf_token 파라미터
-        token = _extract_hf_token_from_headers() or hf_token
+        # Authorization 헤더에서 토큰 추출
+        token = _extract_hf_token_from_headers()
         
         # 토큰이 없으면 에러 반환
         if not token:
             return {
                 "error": "Hugging Face 토큰이 필요합니다.",
-                "message": "Authorization 헤더(Bearer 토큰) 또는 hf_token 파라미터로 토큰을 전달해주세요.",
+                "message": "Authorization 헤더(Bearer 토큰)로 토큰을 전달해주세요.",
                 "token_url": "https://huggingface.co/settings/tokens"
             }
         

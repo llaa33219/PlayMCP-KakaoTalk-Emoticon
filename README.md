@@ -56,38 +56,17 @@
 
 ## Hugging Face 토큰 인증
 
-이모티콘 생성(`generate` 도구)을 사용하려면 Hugging Face API 토큰이 필요합니다. 다음 두 가지 방법으로 토큰을 전달할 수 있습니다:
+이모티콘 생성(`generate` 도구)을 사용하려면 Hugging Face API 토큰이 필요합니다.
 
-### 방법 1: Authorization 헤더 (권장) ✅
+### Authorization 헤더로 토큰 전달
 
-**가장 안전한 방법입니다.** HTTP 요청의 Authorization 헤더에 Bearer 토큰으로 전달합니다.
+HTTP 요청의 Authorization 헤더에 Bearer 토큰으로 전달합니다.
 
 ```
 Authorization: Bearer hf_xxxxxxxxxxxxxxxxxxxxx
 ```
 
 PlayMCP에서 사용 시, PlayMCP의 인증 설정을 통해 토큰을 안전하게 저장하고 자동으로 전달할 수 있습니다.
-
-### 방법 2: hf_token 파라미터 (대안)
-
-도구 호출 시 `hf_token` 파라미터로 직접 전달합니다. 헤더 방식을 사용할 수 없는 환경에서 사용합니다.
-
-```json
-{
-  "emoticon_type": "static",
-  "emoticons": [...],
-  "hf_token": "hf_xxxxxxxxxxxxxxxxxxxxx"
-}
-```
-
-### 인증 방식 비교
-
-| 방식 | 안전성 | 설명 |
-|------|--------|------|
-| Authorization 헤더 | ⭐⭐⭐ | 토큰이 요청 본문에 노출되지 않음. PlayMCP 인증 시스템과 통합 가능 |
-| hf_token 파라미터 | ⭐⭐ | 토큰이 요청 본문에 포함됨. 헤더를 사용할 수 없는 경우에 사용 |
-
-**토큰 우선순위**: Authorization 헤더 > hf_token 파라미터
 
 ### Hugging Face 토큰 발급
 

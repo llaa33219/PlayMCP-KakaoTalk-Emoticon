@@ -72,7 +72,7 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
     },
     "generate_tool": {
         "name": "generate_tool",
-        "description": "[3단계] AI 이모티콘 이미지 생성. 트리거: before_preview_tool 호출 후 자동으로 호출. 캐릭터 이미지 없으면 AI가 자동 생성합니다.",
+        "description": "[3단계] AI 이모티콘 이미지 생성. 트리거: before_preview_tool 호출 후 자동으로 호출. 캐릭터 이미지 없으면 AI가 자동 생성합니다. Hugging Face 토큰은 Authorization 헤더(Bearer 토큰)로 전달해야 합니다.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -103,10 +103,6 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
                 "character_image": {
                     "type": "string",
                     "description": "캐릭터 참조 이미지 (Base64 또는 URL). 생략 시 AI가 자동 생성"
-                },
-                "hf_token": {
-                    "type": "string",
-                    "description": "Hugging Face API 토큰 (필수). Authorization 헤더로도 전달 가능"
                 }
             },
             "required": ["emoticon_type", "emoticons"]
