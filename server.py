@@ -357,10 +357,18 @@ try:
     transport_type = None
     
     if hasattr(mcp_instance, 'streamable_http_app'):
-        mcp_app = mcp_instance.streamable_http_app()
+        # streamable_http_app은 path 파라미터를 지원할 수 있음
+        try:
+            mcp_app = mcp_instance.streamable_http_app(path='/')
+        except TypeError:
+            mcp_app = mcp_instance.streamable_http_app()
         transport_type = "Streamable HTTP"
     elif hasattr(mcp_instance, 'http_app'):
-        mcp_app = mcp_instance.http_app()
+        # http_app은 기본적으로 /mcp/ 경로를 사용하므로 path='/' 설정 필요
+        try:
+            mcp_app = mcp_instance.http_app(path='/')
+        except TypeError:
+            mcp_app = mcp_instance.http_app()
         transport_type = "HTTP"
     elif hasattr(mcp_instance, 'sse_app'):
         mcp_app = mcp_instance.sse_app()
