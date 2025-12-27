@@ -349,10 +349,10 @@ try:
     import traceback
     print("Initializing MCP server...")
     mcp_instance = _get_mcp()
-    print("MCP instance created, mounting HTTP app...")
-    # Streamable HTTP 방식 지원을 위해 http_app() 사용
+    print("MCP instance created, mounting Streamable HTTP app...")
+    # Streamable HTTP 방식 지원을 위해 streamable_http_app() 사용
     # 모든 명시적 라우트 정의 후에 마운트해야 기존 엔드포인트가 우선됨
-    app.mount("/", mcp_instance.http_app())
+    app.mount("/", mcp_instance.streamable_http_app())
     print("MCP server initialized - Streamable HTTP endpoint available at root")
 except Exception as e:
     print(f"Warning: MCP initialization failed: {e}")
