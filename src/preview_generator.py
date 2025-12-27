@@ -230,29 +230,47 @@ AFTER_PREVIEW_TEMPLATE = """
             flex: 1;
             text-align: center;
         }
-        .download-btn {
+        .badge {
             background-color: #fee500;
             color: #3c1e1e;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
             font-weight: 600;
-            text-decoration: none;
-            transition: background-color 0.2s;
-        }
-        .download-btn:hover {
-            background-color: #fdd835;
         }
         .chat-area {
             flex: 1;
             padding: 16px;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .download-section {
+            display: flex;
+            justify-content: center;
+            margin-top: auto;
+            margin-bottom: 8px;
+        }
+        .download-btn {
+            background-color: #fee500;
+            color: #3c1e1e;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background-color 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .download-btn:hover {
+            background-color: #fdd835;
         }
         .emoticon-panel {
             background-color: #fff;
-            border-radius: 16px 16px 0 0;
+            border-radius: 16px;
             margin-top: auto;
-            max-height: 70vh;
+            max-height: 60vh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -276,12 +294,11 @@ AFTER_PREVIEW_TEMPLATE = """
             color: #333;
         }
         .type-badge {
-            background-color: #fee500;
-            color: #3c1e1e;
+            background-color: #f5f5f5;
+            color: #666;
             padding: 4px 8px;
             border-radius: 8px;
             font-size: 12px;
-            margin-left: auto;
         }
         .emoticon-grid {
             display: grid;
@@ -297,13 +314,12 @@ AFTER_PREVIEW_TEMPLATE = """
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 4px;
+            padding: 8px;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: background-color 0.2s;
         }
         .emoticon-item:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            background-color: #f0f0f0;
         }
         .emoticon-item img {
             max-width: 100%;
@@ -354,10 +370,14 @@ AFTER_PREVIEW_TEMPLATE = """
 <body>
     <div class="header">
         <div class="header-title">{{ title }}</div>
-        <a href="{{ download_url }}" class="download-btn" download>ZIP 다운로드</a>
+        <span class="badge">완성</span>
     </div>
     
-    <div class="chat-area"></div>
+    <div class="chat-area">
+        <div class="download-section">
+            <a href="{{ download_url }}" class="download-btn" download>ZIP 다운로드</a>
+        </div>
+    </div>
     
     <div class="emoticon-panel">
         <div class="panel-header">
