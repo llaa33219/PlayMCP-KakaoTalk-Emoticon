@@ -75,7 +75,7 @@ async def mcp_metadata():
             "title": "카카오 이모티콘 MCP 서버",
             "version": "1.0.0"
         },
-        "description": "카카오톡 이모티콘 제작 자동화 MCP 서버. 이모티콘 계획, 제작, 검증을 자동으로 수행합니다.",
+        "description": "카카오톡 이모티콘 제작 자동화 MCP 서버. AI가 사용자에게 질문하지 않고 독립적으로 기획부터 제작까지 전 과정을 자동 수행합니다. (AI autonomously plans and creates emoticons without asking user for details)",
         "transport": {
             "type": "streamable-http",
             "endpoint": "/"
@@ -87,24 +87,24 @@ async def mcp_metadata():
         },
         "tools": [
             {
+                "name": "get_specs_tool",
+                "description": "[STEP 0 - CALL FIRST] Get emoticon specs to know required count/format. AI must check this before planning."
+            },
+            {
                 "name": "before_preview_tool",
-                "description": "[STEP 1/4] Pre-production Preview - Generate text-based KakaoTalk chat preview to validate emoticon plans BEFORE image generation. Use FIRST in workflow."
+                "description": "[STEP 1/4] Pre-production Preview - AI creates ALL emoticon descriptions autonomously. DO NOT ask user for ideas."
             },
             {
                 "name": "generate_tool",
-                "description": "[STEP 2/4] AI Emoticon Generator - Create actual emoticon images using AI from character reference and descriptions. Supports static PNG and animated WebP. Requires HuggingFace token via Authorization header or parameter."
+                "description": "[STEP 2/4] AI Emoticon Generator - Generate images immediately using AI's plan. DO NOT ask for confirmation."
             },
             {
                 "name": "after_preview_tool",
-                "description": "[STEP 3/4] Final Preview - Display generated emoticons in KakaoTalk chat simulation with download option (ZIP). Use AFTER generate_tool."
+                "description": "[STEP 3/4] Final Preview - Show preview automatically. DO NOT ask if user wants to see it."
             },
             {
                 "name": "check_tool",
-                "description": "[STEP 4/4] Specification Validator - Verify emoticons meet KakaoTalk submission requirements (format, dimensions, file size, count). Use BEFORE submission."
-            },
-            {
-                "name": "get_specs_tool",
-                "description": "[REFERENCE] Specification Lookup - Query KakaoTalk emoticon requirements for any type (static, dynamic, big, static-mini, dynamic-mini). Use ANYTIME for technical reference."
+                "description": "[STEP 4/4] Validator - Run automatically after preview. DO NOT ask if user wants validation."
             }
         ]
     }
@@ -163,20 +163,25 @@ def _register_tools(mcp):
 [STEP 1/4 - Planning Phase] Pre-production Preview Tool (제작 전 프리뷰)
 
 PURPOSE: Generate a KakaoTalk-style chat preview page with TEXT PLACEHOLDERS instead of actual images.
-Use this BEFORE generating any emoticon images to validate the concept and plan.
 
-WORKFLOW POSITION: Use this tool FIRST in the emoticon creation workflow.
+⚠️ AI BEHAVIOR: DO NOT ask user for emoticon descriptions or plans.
+AI MUST create all emoticon descriptions and plans AUTONOMOUSLY based on the theme.
+Be creative and design a complete emoticon set without user input.
+
+WORKFLOW POSITION: Use this tool FIRST after checking specs.
 
 INPUT:
 - emoticon_type: Type of emoticon set (static, dynamic, big, static-mini, dynamic-mini)
-- title: Name of the emoticon set
-- plans: Array of {description: string, file_type: string} for each planned emoticon
+- title: Name of the emoticon set (AI decides if not provided)
+- plans: Array of {description: string, file_type: string} - AI MUST generate ALL descriptions creatively
 
 OUTPUT:
 - preview_url: URL to view the text-based preview in KakaoTalk chat style
 - total_count: Number of planned emoticons
 
-USE CASE: When user wants to plan/brainstorm emoticon ideas before actual image generation.
+EXAMPLE AI BEHAVIOR:
+User: "고양이 이모티콘 만들어줘"
+AI should: Create 32 unique cat emoticon descriptions like "기지개 펴는 고양이", "하품하는 고양이", "화난 고양이" etc. WITHOUT asking user.
 """
     )
     async def before_preview_tool(
@@ -203,12 +208,16 @@ USE CASE: When user wants to plan/brainstorm emoticon ideas before actual image 
 PURPOSE: Generate actual emoticon images using AI based on character reference and descriptions.
 This is the MAIN PRODUCTION tool that creates the emoticon images.
 
-WORKFLOW POSITION: Use AFTER before_preview_tool when the plan is confirmed.
+⚠️ AI BEHAVIOR: Proceed directly to generation WITHOUT asking user for confirmation.
+AI should use the descriptions it created in Step 1 and generate immediately.
+DO NOT ask user to review or modify the plan - just generate.
+
+WORKFLOW POSITION: Use IMMEDIATELY after before_preview_tool.
 
 INPUT:
 - emoticon_type: Type of emoticon (determines size, format, animation)
-- emoticons: Array of {description: string, file_extension: string} - detailed description for each emoticon
-- character_image (optional): Base64 or URL of reference character image. If omitted, AI generates a new character.
+- emoticons: Array of {description: string, file_extension: string} - use descriptions from planning phase
+- character_image (optional): Base64 or URL of reference character. If omitted, AI generates a new character automatically.
 - hf_token (optional): Hugging Face API token. Can also be passed via Authorization header (Bearer token).
 
 OUTPUT:
@@ -219,8 +228,7 @@ OUTPUT:
 BEHAVIOR:
 - Static emoticons (static, static-mini): Generates PNG images
 - Animated emoticons (dynamic, dynamic-mini, big): Generates video → converts to animated WebP
-
-USE CASE: When ready to produce actual emoticon images after planning phase.
+- Character is auto-generated if not provided - DO NOT ask user for character image
 """
     )
     async def generate_tool(
@@ -260,7 +268,11 @@ USE CASE: When ready to produce actual emoticon images after planning phase.
 PURPOSE: Generate a KakaoTalk-style chat preview page with ACTUAL EMOTICON IMAGES.
 Allows user to see how emoticons look in a real chat environment and download them.
 
-WORKFLOW POSITION: Use AFTER generate_tool when images are ready.
+⚠️ AI BEHAVIOR: Call this IMMEDIATELY after generate_tool completes.
+DO NOT ask user if they want to see preview - always show it automatically.
+Provide both preview_url and download_url to user without asking.
+
+WORKFLOW POSITION: Use IMMEDIATELY after generate_tool.
 
 INPUT:
 - emoticon_type: Type of emoticon set
@@ -271,8 +283,6 @@ INPUT:
 OUTPUT:
 - preview_url: URL to view emoticons in KakaoTalk chat simulation
 - download_url: URL to download all emoticons as a ZIP file ready for submission
-
-USE CASE: When user wants to preview generated emoticons in chat context and/or download them.
 """
     )
     async def after_preview_tool(
@@ -301,7 +311,11 @@ USE CASE: When user wants to preview generated emoticons in chat context and/or 
 PURPOSE: Validate emoticons against KakaoTalk's official submission requirements.
 Ensures emoticons meet all technical specifications before submission.
 
-WORKFLOW POSITION: Use as FINAL step before submitting to KakaoTalk Emoticon Studio.
+⚠️ AI BEHAVIOR: Run validation automatically after showing preview.
+DO NOT ask user if they want to validate - always validate automatically.
+If issues found, AI should explain them and offer to fix without asking.
+
+WORKFLOW POSITION: Use as FINAL step, automatically after after_preview_tool.
 
 INPUT:
 - emoticon_type: Type of emoticon to validate against
@@ -323,8 +337,6 @@ VALIDATION CHECKS:
 - File size limits (varies by type: 100KB~1MB)
 - Emoticon count (16~42 depending on type)
 - Icon specifications (78x78 PNG, max 16KB)
-
-USE CASE: Quality assurance before KakaoTalk submission, or to diagnose why emoticons might be rejected.
 """
     )
     async def check_tool(
@@ -346,12 +358,18 @@ USE CASE: Quality assurance before KakaoTalk submission, or to diagnose why emot
 
     @mcp.tool(
         description="""
-[REFERENCE] KakaoTalk Emoticon Specifications (카카오톡 이모티콘 사양 정보)
+[REFERENCE - Use First] KakaoTalk Emoticon Specifications (카카오톡 이모티콘 사양 정보)
 
 PURPOSE: Retrieve official KakaoTalk emoticon submission specifications.
-Use this to understand requirements BEFORE starting the creation workflow.
+Use this FIRST to understand how many emoticons to create and what format to use.
 
-WORKFLOW POSITION: Use ANYTIME to reference technical requirements.
+⚠️ AI BEHAVIOR: Check specs BEFORE planning to ensure correct count and format.
+AI should call this first to determine:
+- How many emoticons to plan (16, 24, 32, 35, or 42)
+- What file format to use (PNG or WebP)
+- What dimensions are required
+
+WORKFLOW POSITION: Call FIRST before before_preview_tool.
 
 INPUT:
 - emoticon_type (optional): Specific type to query. If omitted, returns ALL types.
@@ -373,8 +391,6 @@ AVAILABLE TYPES:
 - big: 큰 이모티콘 (16 WebP, up to 540x540, max 1MB)
 - static-mini: 멈춰있는 미니 (42 PNG, 180x180, max 100KB)
 - dynamic-mini: 움직이는 미니 (35 WebP, 180x180, max 500KB)
-
-USE CASE: Planning phase to understand constraints, or debugging validation failures.
 """
     )
     async def get_specs_tool(
@@ -426,8 +442,26 @@ def _get_mcp():
     
     _mcp = FastMCP(
         name="kakao-emoticon-mcp",
-        instructions="카카오톡 이모티콘 제작 자동화 MCP 서버. "
-                     "이모티콘 기획 프리뷰, AI 이미지 생성, 완성본 프리뷰, 사양 검사 기능을 제공합니다."
+        instructions="""
+카카오톡 이모티콘 제작 자동화 MCP 서버입니다.
+
+⚠️ IMPORTANT - AI AUTONOMOUS MODE:
+- DO NOT ask the user for emoticon ideas, themes, or descriptions
+- DO NOT ask the user to provide character images or concepts  
+- DO NOT wait for user confirmation between steps
+- AI MUST independently plan, design, and create the entire emoticon set
+- AI should make creative decisions autonomously based on the initial request
+- If user says "make emoticons", AI should decide theme, character, and all descriptions by itself
+
+WORKFLOW (execute automatically without asking):
+1. get_specs_tool: Check specifications for chosen emoticon type
+2. before_preview_tool: AI creates the plan with creative descriptions
+3. generate_tool: Generate all emoticons based on AI's plan
+4. after_preview_tool: Show final preview and provide download
+5. check_tool: Validate before submission
+
+AI는 사용자에게 질문하지 않고 스스로 기획하고 제작을 완료해야 합니다.
+"""
     )
     
     _register_tools(_mcp)
