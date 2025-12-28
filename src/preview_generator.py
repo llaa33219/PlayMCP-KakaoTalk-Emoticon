@@ -1234,7 +1234,7 @@ STATUS_PAGE_TEMPLATE = """
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎨 이모티콘 생성</h1>
+            <h1>이모티콘 생성</h1>
             <div class="task-id">작업 ID: {{ task_id }}</div>
         </div>
         
@@ -1318,7 +1318,7 @@ STATUS_PAGE_TEMPLATE = """
                         <p>이제 AI에게 작업 ID를 전달하여 결과를 확인하세요.</p>
                     </div>
                     <div class="instructions">
-                        <h3>💡 다음 단계</h3>
+                        <h3>다음 단계</h3>
                         <p>AI에게 다음 메시지를 보내세요:</p>
                         <p style="margin-top: 8px;"><code>이모티콘 생성 완료! 작업 ID: ${taskId}</code></p>
                     </div>
@@ -1343,7 +1343,7 @@ STATUS_PAGE_TEMPLATE = """
                         <strong>오류 발생:</strong> ${data.error_message || '알 수 없는 오류'}
                     </div>
                     <div class="instructions">
-                        <h3>💡 해결 방법</h3>
+                        <h3>해결 방법</h3>
                         <p>AI에게 다시 생성을 요청해보세요.</p>
                     </div>
                 `;
