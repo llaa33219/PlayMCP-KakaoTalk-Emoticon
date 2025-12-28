@@ -72,7 +72,7 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
     },
     "generate_tool": {
         "name": "generate_tool",
-        "description": "[3단계] AI 이모티콘 이미지 생성. 트리거: before_preview_tool 호출 후 자동으로 호출. 캐릭터 이미지 없으면 AI가 자동 생성합니다. Hugging Face 토큰은 Authorization 헤더(Bearer 토큰)로 전달해야 합니다.",
+        "description": "[3단계] AI 이모티콘 이미지 생성 시작. 트리거: before_preview_tool 호출 후 호출. 캐릭터 이미지 없으면 AI가 자동 생성. 즉시 작업 ID와 상태 URL을 반환하고 백그라운드에서 생성 진행. 사용자가 상태 URL에서 완료 확인 후 get_generation_result_tool로 결과 조회.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -106,6 +106,20 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
                 }
             },
             "required": ["emoticon_type", "emoticons"]
+        }
+    },
+    "get_generation_result_tool": {
+        "name": "get_generation_result_tool",
+        "description": "[3-1단계] 이모티콘 생성 결과 조회. 트리거: 사용자가 상태 URL에서 '완료'를 확인한 후 작업 ID를 알려주면 호출. 생성된 이미지 URL들을 반환하며, 이후 after_preview_tool에 전달합니다.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "생성 작업 ID (generate_tool에서 반환된 값)"
+                }
+            },
+            "required": ["task_id"]
         }
     },
     "after_preview_tool": {
@@ -227,13 +241,14 @@ def get_tool_schema(tool_name: str) -> Dict[str, Any]:
 MCP_SERVER_INSTRUCTIONS = """# 카카오톡 이모티콘 제작 자동화 MCP 서버
 
 ## 🔧 사용 가능한 도구 목록
-당신은 다음 5개의 도구를 사용할 수 있습니다:
+당신은 다음 6개의 도구를 사용할 수 있습니다:
 
 1. **get_specs_tool** - 이모티콘 사양 조회 (타입별 개수, 형식, 크기)
 2. **before_preview_tool** - 제작 전 기획 프리뷰 생성
-3. **generate_tool** - AI 이모티콘 이미지 생성
-4. **after_preview_tool** - 완성본 프리뷰 및 다운로드 URL 제공
-5. **check_tool** - 카카오톡 제출 규격 검사
+3. **generate_tool** - AI 이모티콘 생성 시작 (작업 ID 및 상태 URL 반환)
+4. **get_generation_result_tool** - 생성 완료 후 결과 조회
+5. **after_preview_tool** - 완성본 프리뷰 및 다운로드 URL 제공
+6. **check_tool** - 카카오톡 제출 규격 검사
 
 ## 🎯 언제 도구를 사용해야 하나요?
 
@@ -248,9 +263,11 @@ MCP_SERVER_INSTRUCTIONS = """# 카카오톡 이모티콘 제작 자동화 MCP �
 1. **get_specs_tool 호출** → 사양 확인 (몇 개 만들어야 하는지 파악)
 2. 사용자에게 캐릭터/분위기만 간단히 질문
 3. **before_preview_tool 호출** → AI가 직접 이모티콘 설명 창작
-4. **generate_tool 호출** → 실제 이미지 생성
-5. **after_preview_tool 호출** → 프리뷰 및 다운로드 제공
-6. **check_tool 호출** → 규격 검증
+4. **generate_tool 호출** → 생성 시작 (작업 ID 및 상태 URL 반환)
+   - 사용자에게 상태 URL 안내 후 "완료되면 알려주세요" 요청
+5. **사용자가 '완료' 또는 '작업 ID' 언급 시** → get_generation_result_tool 호출
+6. **after_preview_tool 호출** → 프리뷰 및 다운로드 제공
+7. **check_tool 호출** → 규격 검증
 
 ## ⚠️ 중요 행동 지침
 
@@ -258,12 +275,14 @@ MCP_SERVER_INSTRUCTIONS = """# 카카오톡 이모티콘 제작 자동화 MCP �
 - 사용자가 이모티콘을 언급하면 **즉시** get_specs_tool 호출
 - 큰 방향(캐릭터, 분위기, 타입)만 질문
 - 개별 이모티콘 설명(16~42개)은 AI가 직접 창작
-- 도구 결과를 사용자에게 친절하게 설명
+- generate_tool 후 상태 URL을 사용자에게 안내
+- 사용자가 "완료"/"작업 ID" 언급 시 get_generation_result_tool 호출
 
 ### ❌ AI가 하지 말아야 할 것  
 - 이모티콘 하나하나의 상황을 사용자에게 다 물어보기
 - 세부적인 포즈나 표정 하나하나 확인하기
 - 도구를 사용하지 않고 그냥 설명만 하기
+- generate_tool 호출 후 결과를 기다리지 않음 (비동기임!)
 
 ## 📊 이모티콘 타입별 개수
 - static (멈춰있는): 32개
@@ -281,7 +300,10 @@ AI 행동:
 2. "어떤 타입으로 만들까요? (멈춰있는/움직이는)" 질문
 3. 사용자 답변 후 before_preview_tool() 호출
    - AI가 직접 32개의 이모티콘 설명 창작 (예: "하품하는 고양이", "화난 고양이" 등)
-4. generate_tool() 호출하여 이미지 생성
-5. after_preview_tool() 호출하여 결과 제공
+4. generate_tool() 호출 → **작업 ID와 상태 URL 반환**
+5. 사용자에게 안내: "이모티콘 생성이 시작되었습니다! 아래 URL에서 진행 상황을 확인하세요: [상태 URL]. 완료되면 알려주세요!"
+6. 사용자가 "완료됐어" 또는 "작업 ID: xxx" 메시지 전달
+7. get_generation_result_tool(task_id) 호출하여 생성된 이미지 URL들 획득
+8. after_preview_tool() 호출하여 프리뷰 및 다운로드 제공
 
-핵심: **도구를 적극적으로 사용**하고, 세부 기획은 AI가 창작합니다."""
+핵심: **generate_tool은 비동기**입니다. 즉시 결과가 나오지 않고, 사용자가 상태 URL에서 완료를 확인한 후 get_generation_result_tool로 결과를 조회해야 합니다."""

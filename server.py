@@ -123,7 +123,9 @@ async def root():
             "health": "/health",
             "preview": "/preview/{preview_id}",
             "download": "/download/{download_id}",
-            "image": "/image/{image_id}"
+            "image": "/image/{image_id}",
+            "status": "/status/{task_id}",
+            "status_json": "/status/{task_id}/json"
         }
     }
 
@@ -171,6 +173,39 @@ async def get_image(image_id: str):
     return Response(content="Image not found", status_code=404)
 
 
+@app.get("/status/{task_id}", response_class=HTMLResponse)
+async def get_status_page(task_id: str):
+    """생성 작업 상태 페이지 반환"""
+    from src.preview_generator import get_preview_generator
+    
+    generator = get_preview_generator(os.environ.get("BASE_URL", ""))
+    html = generator.get_status_html(task_id)
+    if html:
+        return HTMLResponse(content=html)
+    
+    # 상태 페이지가 없으면 동적으로 생성
+    status_url = generator.generate_status_page(task_id)
+    html = generator.get_status_html(task_id)
+    if html:
+        return HTMLResponse(content=html)
+    
+    return HTMLResponse(content="Status page not found", status_code=404)
+
+
+@app.get("/status/{task_id}/json")
+async def get_status_json(task_id: str):
+    """생성 작업 상태 JSON 반환"""
+    from src.task_storage import get_task_storage
+    
+    task_storage = get_task_storage()
+    task = await task_storage.get_task(task_id)
+    
+    if task is None:
+        return {"error": "작업을 찾을 수 없습니다.", "task_id": task_id}
+    
+    return task.to_dict()
+
+
 # ===== MCP 도구 등록 함수 (MCP 초기화 전에 정의되어야 함) =====
 def _register_tools(mcp):
     """MCP 도구들을 등록"""
@@ -199,16 +234,16 @@ def _register_tools(mcp):
         return response.model_dump()
 
     @mcp.tool(
-        description="[3단계] AI 이모티콘 이미지 생성. 트리거: before_preview_tool 호출 후 자동으로 호출. 캐릭터 이미지 없으면 AI가 자동 생성합니다. Hugging Face 토큰은 Authorization 헤더(Bearer 토큰)로 전달해야 합니다."
+        description="[3단계] AI 이모티콘 이미지 생성 시작. 트리거: before_preview_tool 호출 후 호출. 캐릭터 이미지 없으면 AI가 자동 생성합니다. 즉시 작업 ID와 상태 확인 URL을 반환하고, 백그라운드에서 생성이 진행됩니다. 사용자가 상태 URL에서 완료를 확인한 후, get_generation_result_tool로 결과를 조회하세요."
     )
     async def generate_tool(
         emoticon_type: Annotated[EmoticonType, Field(description="이모티콘 타입: static(멈춰있는, 32개), dynamic(움직이는, 24개), big(큰, 16개), static-mini(멈춰있는 미니, 42개), dynamic-mini(움직이는 미니, 35개)")],
         emoticons: Annotated[List[EmoticonGenerateItem], Field(description="생성할 이모티콘 목록. 각 항목은 description(상황/표정 설명)과 file_extension(png/webp) 포함")],
         character_image: Annotated[Optional[str], Field(description="캐릭터 참조 이미지 (Base64 또는 URL). 생략 시 AI가 자동 생성")] = None
     ) -> dict:
-        """AI를 사용하여 이모티콘 이미지를 생성합니다. Hugging Face 토큰은 Authorization 헤더로 전달해야 합니다."""
+        """이미지 생성 AI를 사용하여 이모티콘 생성을 시작합니다. 즉시 작업 ID와 상태 URL을 반환합니다. Hugging Face 토큰은 Authorization 헤더로 전달해야 합니다."""
         from src.models import GenerateRequest
-        from src.tools import generate
+        from src.tools import generate_async
         
         # Authorization 헤더에서 토큰 추출
         token = _extract_hf_token_from_headers()
@@ -227,8 +262,19 @@ def _register_tools(mcp):
             emoticons=emoticons
         )
         
-        response = await generate(request, token)
+        response = await generate_async(request, token)
         return response.model_dump()
+
+    @mcp.tool(
+        description="[3-1단계] 이모티콘 생성 결과 조회. 트리거: 사용자가 상태 URL에서 '완료'를 확인한 후 작업 ID를 알려주면 이 도구를 호출하여 생성된 이미지 URL들을 가져옵니다."
+    )
+    async def get_generation_result_tool(
+        task_id: Annotated[str, Field(description="생성 작업 ID (generate_tool에서 반환된 값)")]
+    ) -> dict:
+        """완료된 이모티콘 생성 작업의 결과를 조회합니다. 생성된 이미지 URL들을 반환합니다."""
+        from src.tools import get_generation_result
+        
+        return await get_generation_result(task_id)
 
     @mcp.tool(
         description="[4단계] 완성본 프리뷰 생성. 트리거: generate_tool 호출 후 자동으로 호출. 카카오톡 스타일 프리뷰와 ZIP 다운로드 URL을 제공합니다."

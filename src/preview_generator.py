@@ -825,6 +825,352 @@ BEFORE_PREVIEW_TEMPLATE = """
 </html>
 """
 
+# status page 템플릿 (진행 상황)
+STATUS_PAGE_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이모티콘 생성 중...</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --text-primary: #ffffff;
+            --text-secondary: #999999;
+            --kakao-yellow: #fee500;
+            --success-green: #4ade80;
+            --error-red: #f87171;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background-color: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .header .task-id {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-family: monospace;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 16px 0;
+        }
+        .status-pending {
+            background-color: var(--text-secondary);
+            color: #000;
+        }
+        .status-running {
+            background-color: var(--kakao-yellow);
+            color: #000;
+        }
+        .status-completed {
+            background-color: var(--success-green);
+            color: #000;
+        }
+        .status-failed {
+            background-color: var(--error-red);
+            color: #000;
+        }
+        .progress-section {
+            margin: 24px 0;
+        }
+        .progress-bar-container {
+            background-color: var(--bg-primary);
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--kakao-yellow), #ffd000);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .progress-bar span {
+            font-size: 11px;
+            font-weight: 600;
+            color: #000;
+        }
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .current-task {
+            text-align: center;
+            padding: 16px;
+            background-color: var(--bg-primary);
+            border-radius: 12px;
+            margin: 16px 0;
+        }
+        .current-task-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .current-task-desc {
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+        .emoticon-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 24px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .emoticon-item {
+            aspect-ratio: 1;
+            background-color: var(--bg-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .emoticon-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .emoticon-item.pending {
+            opacity: 0.3;
+        }
+        .emoticon-item.pending::after {
+            content: '';
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--text-secondary);
+            border-radius: 50%;
+        }
+        .instructions {
+            margin-top: 24px;
+            padding: 16px;
+            background-color: rgba(254, 229, 0, 0.1);
+            border: 1px solid rgba(254, 229, 0, 0.3);
+            border-radius: 12px;
+        }
+        .instructions h3 {
+            font-size: 14px;
+            color: var(--kakao-yellow);
+            margin-bottom: 8px;
+        }
+        .instructions p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .instructions code {
+            background-color: var(--bg-primary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--kakao-yellow);
+        }
+        .error-message {
+            margin-top: 16px;
+            padding: 16px;
+            background-color: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            border-radius: 12px;
+            color: var(--error-red);
+            font-size: 14px;
+        }
+        .result-section {
+            margin-top: 24px;
+            text-align: center;
+        }
+        .result-section h3 {
+            font-size: 18px;
+            color: var(--success-green);
+            margin-bottom: 16px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--bg-primary);
+            border-top-color: var(--kakao-yellow);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 16px 0;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .refresh-note {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 이모티콘 생성</h1>
+            <div class="task-id">작업 ID: {{ task_id }}</div>
+        </div>
+        
+        <div id="statusContent">
+            <div style="text-align: center;">
+                <div class="spinner"></div>
+                <p>로딩 중...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const taskId = '{{ task_id }}';
+        
+        async function fetchStatus() {
+            try {
+                const response = await fetch(`/status/${taskId}/json`);
+                const data = await response.json();
+                updateUI(data);
+                
+                if (data.status !== 'completed' && data.status !== 'failed') {
+                    setTimeout(fetchStatus, 2000);
+                }
+            } catch (error) {
+                console.error('Status fetch error:', error);
+                setTimeout(fetchStatus, 3000);
+            }
+        }
+        
+        function updateUI(data) {
+            const content = document.getElementById('statusContent');
+            
+            let statusClass = 'status-' + data.status;
+            let statusText = {
+                'pending': '대기 중',
+                'running': '생성 중',
+                'completed': '완료',
+                'failed': '실패'
+            }[data.status] || data.status;
+            
+            let html = `
+                <div style="text-align: center;">
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                </div>
+            `;
+            
+            if (data.status === 'running' || data.status === 'pending') {
+                html += `
+                    <div class="progress-section">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: ${data.progress_percent}%">
+                                <span>${data.progress_percent}%</span>
+                            </div>
+                        </div>
+                        <div class="progress-text">
+                            <span>${data.completed_count} / ${data.total_count} 완료</span>
+                            <span>${data.emoticon_type}</span>
+                        </div>
+                    </div>
+                `;
+                
+                if (data.current_description) {
+                    html += `
+                        <div class="current-task">
+                            <div class="current-task-label">현재 작업</div>
+                            <div class="current-task-desc">${data.current_description}</div>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                    <div class="spinner" style="margin: 24px auto; display: block;"></div>
+                    <p class="refresh-note">페이지가 자동으로 업데이트됩니다...</p>
+                `;
+            }
+            
+            if (data.status === 'completed') {
+                html += `
+                    <div class="result-section">
+                        <h3>✅ 생성 완료!</h3>
+                        <p>이제 AI에게 작업 ID를 전달하여 결과를 확인하세요.</p>
+                    </div>
+                    <div class="instructions">
+                        <h3>💡 다음 단계</h3>
+                        <p>AI에게 다음 메시지를 보내세요:</p>
+                        <p style="margin-top: 8px;"><code>이모티콘 생성 완료! 작업 ID: ${taskId}</code></p>
+                    </div>
+                `;
+                
+                if (data.emoticons && data.emoticons.length > 0) {
+                    html += `<div class="emoticon-grid">`;
+                    data.emoticons.forEach(e => {
+                        html += `
+                            <div class="emoticon-item">
+                                <img src="${e.image_data}" alt="이모티콘">
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+            }
+            
+            if (data.status === 'failed') {
+                html += `
+                    <div class="error-message">
+                        <strong>오류 발생:</strong> ${data.error_message || '알 수 없는 오류'}
+                    </div>
+                    <div class="instructions">
+                        <h3>💡 해결 방법</h3>
+                        <p>AI에게 다시 생성을 요청해보세요.</p>
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = html;
+        }
+        
+        fetchStatus();
+    </script>
+</body>
+</html>
+"""
+
 # after-preview 템플릿 (완성본)
 AFTER_PREVIEW_TEMPLATE = """
 <!DOCTYPE html>
@@ -1720,6 +2066,33 @@ class PreviewGenerator:
             {"data": bytes, "mime_type": str} 또는 None
         """
         return self._image_storage.get(image_id)
+    
+    def generate_status_page(self, task_id: str) -> str:
+        """
+        생성 작업 상태 페이지 URL 생성
+        
+        Args:
+            task_id: 작업 ID
+            
+        Returns:
+            상태 페이지 URL
+        """
+        template = Template(STATUS_PAGE_TEMPLATE)
+        html_content = template.render(task_id=task_id)
+        
+        # 상태 페이지는 task_id를 키로 저장 (status_ 접두사 사용)
+        status_key = f"status_{task_id}"
+        self._storage[status_key] = html_content
+        
+        if self.base_url:
+            return f"{self.base_url}/status/{task_id}"
+        else:
+            return f"/status/{task_id}"
+    
+    def get_status_html(self, task_id: str) -> Optional[str]:
+        """저장된 상태 페이지 HTML 반환"""
+        status_key = f"status_{task_id}"
+        return self._storage.get(status_key)
     
     def generate_before_preview(
         self,

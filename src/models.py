@@ -57,6 +57,15 @@ class GenerateResponse(BaseModel):
     emoticon_type: Union[EmoticonType, str] = Field(..., description="이모티콘 타입")
 
 
+class GenerateAsyncResponse(BaseModel):
+    """비동기 generate 응답 모델"""
+    task_id: str = Field(..., description="작업 ID (결과 조회 시 사용)")
+    status_url: str = Field(..., description="진행 상황 확인 URL")
+    message: str = Field(..., description="안내 메시지")
+    emoticon_type: Union[EmoticonType, str] = Field(..., description="이모티콘 타입")
+    total_count: int = Field(..., description="생성할 이모티콘 총 개수")
+
+
 class EmoticonImage(BaseModel):
     """이모티콘 이미지 (after-preview용)"""
     image_data: str = Field(..., description="이미지 URL (예: /image/{id}) 또는 base64")
