@@ -72,7 +72,7 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
     },
     "generate_tool": {
         "name": "generate_tool",
-        "description": "[3단계] AI 이모티콘 이미지 생성 시작. 트리거: before_preview_tool 호출 후 호출. 캐릭터 이미지 없으면 AI가 자동 생성. 즉시 작업 ID와 상태 URL을 반환하고 백그라운드에서 생성 진행. 사용자가 상태 URL에서 완료 확인 후 get_generation_result_tool로 결과 조회.",
+        "description": "[3단계] AI 이모티콘 이미지 생성 시작. 트리거: before_preview_tool 호출 후 호출. 베이스 캐릭터 설명과 각 이모티콘 상황을 영어로 제공하세요. 즉시 작업 ID와 상태 URL을 반환하고 백그라운드에서 생성 진행. 사용자가 상태 URL에서 완료 확인 후 get_generation_result_tool로 결과 조회.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -80,6 +80,10 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
                     "type": "string",
                     "enum": ["static", "dynamic", "big", "static-mini", "dynamic-mini"],
                     "description": "이모티콘 타입 (크기, 포맷, 애니메이션 결정)"
+                },
+                "character_description": {
+                    "type": "string",
+                    "description": "베이스 캐릭터 설명 (영어로 작성! 예: 'cute white cat with big round eyes', 'small brown puppy with floppy ears'). 이미지 생성 AI는 영어 프롬프트에서 더 좋은 결과를 냅니다."
                 },
                 "emoticons": {
                     "type": "array",
@@ -89,7 +93,7 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
                         "properties": {
                             "description": {
                                 "type": "string",
-                                "description": "이모티콘 상세 설명"
+                                "description": "이모티콘 상세 설명 (영어로 작성! 예: 'happy cat waving hand', 'sleeping cat curled up'). 이미지 생성 AI는 영어 프롬프트에서 더 좋은 결과를 냅니다."
                             },
                             "file_extension": {
                                 "type": "string",
@@ -102,10 +106,10 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
                 },
                 "character_image": {
                     "type": "string",
-                    "description": "캐릭터 참조 이미지 (Base64 또는 URL). 생략 시 AI가 자동 생성"
+                    "description": "캐릭터 참조 이미지 (Base64 또는 URL). 제공 시 character_description보다 우선 사용"
                 }
             },
-            "required": ["emoticon_type", "emoticons"]
+            "required": ["emoticon_type", "character_description", "emoticons"]
         }
     },
     "get_generation_result_tool": {

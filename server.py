@@ -238,8 +238,9 @@ def _register_tools(mcp):
     )
     async def generate_tool(
         emoticon_type: Annotated[EmoticonType, Field(description="이모티콘 타입: static(멈춰있는, 32개), dynamic(움직이는, 24개), big(큰, 16개), static-mini(멈춰있는 미니, 42개), dynamic-mini(움직이는 미니, 35개)")],
-        emoticons: Annotated[List[EmoticonGenerateItem], Field(description="생성할 이모티콘 목록. 각 항목은 description(상황/표정 설명)과 file_extension(png/webp) 포함")],
-        character_image: Annotated[Optional[str], Field(description="캐릭터 참조 이미지 (Base64 또는 URL). 생략 시 AI가 자동 생성")] = None
+        character_description: Annotated[str, Field(description="베이스 캐릭터 설명 (영어로 작성! 예: 'cute white cat with big round eyes', 'small brown puppy with floppy ears'). 이미지 생성 AI는 영어 프롬프트에서 더 좋은 결과를 냅니다.")],
+        emoticons: Annotated[List[EmoticonGenerateItem], Field(description="생성할 이모티콘 목록. 각 항목은 description(영어로 작성! 예: 'happy cat waving hand', 'angry cat with crossed arms')과 file_extension(png/webp) 포함. 이미지 생성 AI는 영어 프롬프트에서 더 좋은 결과를 냅니다.")],
+        character_image: Annotated[Optional[str], Field(description="캐릭터 참조 이미지 (Base64 또는 URL). 제공 시 character_description보다 우선 사용")] = None
     ) -> dict:
         """이미지 생성 AI를 사용하여 이모티콘 생성을 시작합니다. 즉시 작업 ID와 상태 URL을 반환합니다. Hugging Face 토큰은 Authorization 헤더로 전달해야 합니다."""
         from src.models import GenerateRequest
@@ -258,6 +259,7 @@ def _register_tools(mcp):
         
         request = GenerateRequest(
             emoticon_type=emoticon_type,
+            character_description=character_description,
             character_image=character_image,
             emoticons=emoticons
         )

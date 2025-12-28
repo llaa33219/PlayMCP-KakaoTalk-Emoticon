@@ -29,14 +29,15 @@ class BeforePreviewResponse(BaseModel):
 
 class EmoticonGenerateItem(BaseModel):
     """개별 이모티콘 생성 요청"""
-    description: str = Field(..., description="이모티콘 상황/표정/포즈 설명 (예: '신나서 점프하는 고양이', '자는 고양이')")
+    description: str = Field(..., description="이모티콘 상황/표정/포즈 설명 (영어로 작성! 예: 'excited cat jumping', 'sleeping cat curled up'). 이미지 생성 AI는 영어 프롬프트에서 더 좋은 결과를 냅니다.")
     file_extension: FileExtension = Field(..., description="파일 확장자 (png 또는 webp)")
 
 
 class GenerateRequest(BaseModel):
     """generate 요청 모델"""
     emoticon_type: EmoticonType = Field(..., description="이모티콘 타입")
-    character_image: Optional[str] = Field(None, description="캐릭터 이미지 (base64 또는 URL)")
+    character_description: Optional[str] = Field(None, description="베이스 캐릭터 설명 (영어로 작성! 예: 'cute white cat with big round eyes', 'small brown puppy with floppy ears'). 이미지 생성 AI는 영어 프롬프트에서 더 좋은 결과를 냅니다.")
+    character_image: Optional[str] = Field(None, description="캐릭터 이미지 (base64 또는 URL). 제공 시 character_description보다 우선 사용됩니다.")
     emoticons: List[EmoticonGenerateItem] = Field(..., description="생성할 이모티콘 목록")
 
 
