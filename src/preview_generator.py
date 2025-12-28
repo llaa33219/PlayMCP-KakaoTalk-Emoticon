@@ -2433,16 +2433,16 @@ class PreviewGenerator:
         Returns:
             {"data": bytes, "mime_type": str} 또는 None
         """
-        # 이미지 데이터 조회
-        data = await self._storage.get(image_key(image_id))
-        if data is None:
-            return None
+        key = image_key(image_id)
+        data = await self._storage.get(key)
+        if data:
+            # 메타데이터 조회
+            meta = await self._storage.get_json(f"{key}:meta")
+            mime_type = meta.get("mime_type", "image/png") if meta else "image/png"
+            return {"data": data, "mime_type": mime_type}
         
-        # 메타데이터 조회
-        meta = await self._storage.get_json(f"{image_key(image_id)}:meta")
-        mime_type = meta.get("mime_type", "image/png") if meta else "image/png"
-        
-        return {"data": data, "mime_type": mime_type}
+        print(f"[DEBUG] Image not found - key: {key}, image_id: {image_id}")
+        return None
     
     async def generate_status_page(self, task_id: str) -> str:
         """
@@ -2467,9 +2467,11 @@ class PreviewGenerator:
     
     async def get_status_html(self, task_id: str) -> Optional[str]:
         """저장된 상태 페이지 HTML 반환"""
-        data = await self._storage.get(status_key(task_id))
+        key = status_key(task_id)
+        data = await self._storage.get(key)
         if data:
             return data.decode('utf-8')
+        # status page는 없으면 동적으로 생성하므로 로그 출력 생략
         return None
     
     async def generate_before_preview(
@@ -2632,14 +2634,21 @@ class PreviewGenerator:
     
     async def get_preview_html(self, preview_id: str) -> Optional[str]:
         """저장된 프리뷰 HTML 반환"""
-        data = await self._storage.get(preview_key(preview_id))
+        key = preview_key(preview_id)
+        data = await self._storage.get(key)
         if data:
             return data.decode('utf-8')
+        print(f"[DEBUG] Preview not found - key: {key}, preview_id: {preview_id}")
         return None
     
     async def get_download_zip(self, download_id: str) -> Optional[bytes]:
         """저장된 ZIP 파일 반환"""
-        return await self._storage.get(zip_key(download_id))
+        key = zip_key(download_id)
+        data = await self._storage.get(key)
+        if data:
+            return data
+        print(f"[DEBUG] ZIP not found - key: {key}, download_id: {download_id}")
+        return None
 
 
 # 전역 인스턴스
@@ -2651,4 +2660,7 @@ def get_preview_generator(base_url: str = "") -> PreviewGenerator:
     global _preview_generator
     if _preview_generator is None:
         _preview_generator = PreviewGenerator(base_url)
+    # base_url이 변경되면 업데이트 (서버 시작 시 BASE_URL 환경변수가 늦게 설정될 수 있음)
+    elif base_url and _preview_generator.base_url != base_url.rstrip("/"):
+        _preview_generator.base_url = base_url.rstrip("/")
     return _preview_generator
