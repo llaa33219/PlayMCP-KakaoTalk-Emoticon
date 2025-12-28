@@ -161,6 +161,9 @@ BEFORE_PREVIEW_TEMPLATE = """
             font-size: 64px;
             line-height: 1;
         }
+        .message-emoticon-content.big-emoticon {
+            font-size: 128px;
+        }
         .message-emoticon-label {
             font-size: 10px;
             color: var(--text-secondary);
@@ -404,9 +407,12 @@ BEFORE_PREVIEW_TEMPLATE = """
         .emoticon-grid.mini-grid {
             grid-template-columns: repeat(6, 1fr);
         }
+        .emoticon-grid.big-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
         .emoticon-item {
             aspect-ratio: 1;
-            background-color: var(--bg-tertiary);
+            background-color: transparent;
             border-radius: 12px;
             display: flex;
             flex-direction: column;
@@ -422,8 +428,12 @@ BEFORE_PREVIEW_TEMPLATE = """
             padding: 4px;
             border-radius: 8px;
         }
+        .emoticon-item.big-item {
+            aspect-ratio: 1;
+            padding: 12px;
+        }
         .emoticon-item:hover {
-            background-color: var(--border-color);
+            background-color: rgba(128, 128, 128, 0.2);
             transform: scale(1.05);
         }
         .emoticon-item:active {
@@ -634,7 +644,7 @@ BEFORE_PREVIEW_TEMPLATE = """
     </style>
 </head>
 <body>
-    <div class="chat-container" id="chatContainer">
+    <div class="chat-container light-mode" id="chatContainer">
         <div class="header">
             <div class="header-back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -644,7 +654,7 @@ BEFORE_PREVIEW_TEMPLATE = """
             <div class="header-title">{{ title }}</div>
             <div class="header-actions">
                 <span class="badge">기획</span>
-                <button class="mode-toggle" id="modeToggle" title="다크/라이트 모드 전환">☽</button>
+                <button class="mode-toggle" id="modeToggle" title="다크/라이트 모드 전환">☀️</button>
             </div>
         </div>
         
@@ -694,9 +704,9 @@ BEFORE_PREVIEW_TEMPLATE = """
                 <span class="panel-type-badge">{{ emoticon_type_name }}</span>
             </div>
             
-            <div class="emoticon-grid{% if is_mini %} mini-grid{% endif %}" id="emoticonGrid">
+            <div class="emoticon-grid{% if is_mini %} mini-grid{% elif is_big %} big-grid{% endif %}" id="emoticonGrid">
                 {% for plan in plans %}
-                <div class="emoticon-item{% if is_mini %} mini-item{% endif %}" data-index="{{ loop.index }}" data-desc="{{ plan.description }}">
+                <div class="emoticon-item{% if is_mini %} mini-item{% elif is_big %} big-item{% endif %}" data-index="{{ loop.index }}" data-desc="{{ plan.description }}">
                     <span class="emoticon-number">{{ loop.index }}</span>
                     <span class="emoticon-desc">{{ plan.description }}</span>
                 </div>
@@ -760,6 +770,8 @@ BEFORE_PREVIEW_TEMPLATE = """
         
         // 미니 이모티콘 여부
         const isMini = {{ 'true' if is_mini else 'false' }};
+        // 큰 이모티콘 여부
+        const isBig = {{ 'true' if is_big else 'false' }};
         // 입력칸에 추가된 미니 이모티콘 목록
         let miniEmoticons = [];
         
@@ -890,9 +902,10 @@ BEFORE_PREVIEW_TEMPLATE = """
                     <span class="message-time">${time}</span>
                 `;
             } else if (type === 'emoticon') {
+                const bigClass = isBig ? ' big-emoticon' : '';
                 message.innerHTML = `
                     <div class="message-bubble message-emoticon">
-                        <div class="message-emoticon-content">${content}</div>
+                        <div class="message-emoticon-content${bigClass}">${content}</div>
                         <div class="message-emoticon-label">${escapeHtml(desc)}</div>
                     </div>
                     <span class="message-time">${time}</span>
@@ -999,7 +1012,7 @@ BEFORE_PREVIEW_TEMPLATE = """
         // Mode toggle
         modeToggle.addEventListener('click', () => {
             chatContainer.classList.toggle('light-mode');
-            modeToggle.textContent = chatContainer.classList.contains('light-mode') ? '☼' : '☽';
+            modeToggle.textContent = chatContainer.classList.contains('light-mode') ? '☀️' : '🌙';
         });
         
         // Info toggle
@@ -1523,6 +1536,10 @@ AFTER_PREVIEW_TEMPLATE = """
             max-height: 120px;
             object-fit: contain;
         }
+        .message-emoticon.big-emoticon img {
+            max-width: 240px;
+            max-height: 240px;
+        }
         .message-time {
             font-size: 10px;
             color: var(--text-muted);
@@ -1772,9 +1789,12 @@ AFTER_PREVIEW_TEMPLATE = """
         .emoticon-grid.mini-grid {
             grid-template-columns: repeat(6, 1fr);
         }
+        .emoticon-grid.big-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
         .emoticon-item {
             aspect-ratio: 1;
-            background-color: var(--bg-tertiary);
+            background-color: transparent;
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -1789,8 +1809,12 @@ AFTER_PREVIEW_TEMPLATE = """
             padding: 4px;
             border-radius: 8px;
         }
+        .emoticon-item.big-item {
+            aspect-ratio: 1;
+            padding: 12px;
+        }
         .emoticon-item:hover {
-            background-color: var(--border-color);
+            background-color: rgba(128, 128, 128, 0.2);
             transform: scale(1.05);
         }
         .emoticon-item:active {
@@ -1975,7 +1999,7 @@ AFTER_PREVIEW_TEMPLATE = """
     </style>
 </head>
 <body>
-    <div class="chat-container" id="chatContainer">
+    <div class="chat-container light-mode" id="chatContainer">
         <div class="header">
             <div class="header-back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1985,7 +2009,7 @@ AFTER_PREVIEW_TEMPLATE = """
             <div class="header-title">{{ title }}</div>
             <div class="header-actions">
                 <span class="badge">완성</span>
-                <button class="mode-toggle" id="modeToggle" title="다크/라이트 모드 전환">☽</button>
+                <button class="mode-toggle" id="modeToggle" title="다크/라이트 모드 전환">☀️</button>
             </div>
         </div>
         
@@ -2047,9 +2071,9 @@ AFTER_PREVIEW_TEMPLATE = """
                 <span class="panel-type-badge">{{ emoticon_type_name }}</span>
             </div>
             
-            <div class="emoticon-grid{% if is_mini %} mini-grid{% endif %}" id="emoticonGrid">
+            <div class="emoticon-grid{% if is_mini %} mini-grid{% elif is_big %} big-grid{% endif %}" id="emoticonGrid">
                 {% for emoticon in emoticons %}
-                <div class="emoticon-item{% if is_mini %} mini-item{% endif %}" data-index="{{ loop.index }}" data-src="{{ emoticon.image_data }}">
+                <div class="emoticon-item{% if is_mini %} mini-item{% elif is_big %} big-item{% endif %}" data-index="{{ loop.index }}" data-src="{{ emoticon.image_data }}">
                     <img src="{{ emoticon.image_data }}" alt="이모티콘 {{ loop.index }}">
                 </div>
                 {% endfor %}
@@ -2101,6 +2125,8 @@ AFTER_PREVIEW_TEMPLATE = """
         
         // 미니 이모티콘 여부
         const isMini = {{ 'true' if is_mini else 'false' }};
+        // 큰 이모티콘 여부
+        const isBig = {{ 'true' if is_big else 'false' }};
         // 입력칸에 추가된 미니 이모티콘 목록
         let miniEmoticons = [];
         
@@ -2231,8 +2257,9 @@ AFTER_PREVIEW_TEMPLATE = """
                     <span class="message-time">${time}</span>
                 `;
             } else if (type === 'emoticon') {
+                const bigClass = isBig ? ' big-emoticon' : '';
                 message.innerHTML = `
-                    <div class="message-bubble message-emoticon">
+                    <div class="message-bubble message-emoticon${bigClass}">
                         <img src="${imageSrc}" alt="이모티콘">
                     </div>
                     <span class="message-time">${time}</span>
@@ -2338,7 +2365,7 @@ AFTER_PREVIEW_TEMPLATE = """
         // Mode toggle
         modeToggle.addEventListener('click', () => {
             chatContainer.classList.toggle('light-mode');
-            modeToggle.textContent = chatContainer.classList.contains('light-mode') ? '☼' : '☽';
+            modeToggle.textContent = chatContainer.classList.contains('light-mode') ? '☀️' : '🌙';
         });
         
         // Info toggle
@@ -2498,6 +2525,8 @@ class PreviewGenerator:
         
         # 미니 이모티콘 여부 확인
         is_mini = type_key in [EmoticonType.STATIC_MINI, EmoticonType.DYNAMIC_MINI]
+        # 큰 이모티콘 여부 확인
+        is_big = type_key == EmoticonType.BIG
         
         template = Template(BEFORE_PREVIEW_TEMPLATE)
         html_content = template.render(
@@ -2506,7 +2535,8 @@ class PreviewGenerator:
             emoticon_type_name=emoticon_type_name,
             plans=plans,
             spec=spec,
-            is_mini=is_mini
+            is_mini=is_mini,
+            is_big=is_big
         )
         
         preview_id = self._generate_short_id()
@@ -2543,6 +2573,8 @@ class PreviewGenerator:
         
         # 미니 이모티콘 여부 확인
         is_mini = type_key in [EmoticonType.STATIC_MINI, EmoticonType.DYNAMIC_MINI]
+        # 큰 이모티콘 여부 확인
+        is_big = type_key == EmoticonType.BIG
         
         # ZIP 파일 생성
         download_id = self._generate_short_id()
@@ -2562,7 +2594,8 @@ class PreviewGenerator:
             emoticons=emoticons,
             icon=icon,
             download_url=download_url,
-            is_mini=is_mini
+            is_mini=is_mini,
+            is_big=is_big
         )
         
         preview_id = self._generate_short_id()

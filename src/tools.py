@@ -24,6 +24,23 @@ from src.huggingface_client import get_hf_client
 from src.task_storage import get_task_storage, TaskStatus
 
 
+def convert_to_english_prompt(description: str) -> str:
+    """
+    한글 설명을 영어 이미지 생성 프롬프트로 변환
+    
+    이미지 생성 AI는 영어 프롬프트에서 더 좋은 결과를 내므로,
+    한글 설명을 영어 프롬프트 형식으로 감싸서 반환합니다.
+    (한글 글자가 이미지에 나와야 하는 경우는 description에 포함되어 있어야 함)
+    
+    Args:
+        description: 이모티콘 설명 (한글 또는 영어)
+        
+    Returns:
+        영어 형식의 이미지 생성 프롬프트
+    """
+    return f"emoticon character, {description}, kawaii style, sticker design, white background, simple and cute"
+
+
 async def before_preview(request: BeforePreviewRequest) -> BeforePreviewResponse:
     """
     이모티콘 제작 이전 프리뷰
@@ -150,12 +167,15 @@ async def _run_generation_task(
             
             is_animated = spec.is_animated
             
+            # 영어 프롬프트로 변환
+            english_prompt = convert_to_english_prompt(emoticon_item.description)
+            
             if is_animated:
                 video_bytes = await hf_client.generate_emoticon(
                     character_image=character_bytes,
-                    emoticon_description=emoticon_item.description,
+                    emoticon_description=english_prompt,
                     is_animated=True,
-                    animation_prompt=emoticon_item.description
+                    animation_prompt=english_prompt
                 )
                 
                 image_bytes = video_to_animated_webp(
@@ -168,7 +188,7 @@ async def _run_generation_task(
             else:
                 raw_image = await hf_client.generate_emoticon(
                     character_image=character_bytes,
-                    emoticon_description=emoticon_item.description,
+                    emoticon_description=english_prompt,
                     is_animated=False
                 )
                 
