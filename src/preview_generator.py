@@ -47,6 +47,9 @@ BEFORE_PREVIEW_TEMPLATE = """
             --bubble-mine: #fee500;
             --bubble-mine-text: #3c1e1e;
         }
+        .light-mode .mini-emoticon-inline {
+            background-color: rgba(0,0,0,0.08);
+        }
         * {
             margin: 0;
             padding: 0;
@@ -213,9 +216,15 @@ BEFORE_PREVIEW_TEMPLATE = """
             font-size: 14px;
             outline: none;
             padding: 8px 0;
+            min-width: 50px;
         }
         .input-field::placeholder {
             color: var(--text-muted);
+        }
+        .input-field-wrapper.has-mini {
+            flex-wrap: wrap;
+            padding: 6px 4px 6px 10px;
+            gap: 4px;
         }
         .emoji-btn {
             width: 32px;
@@ -388,6 +397,9 @@ BEFORE_PREVIEW_TEMPLATE = """
             overflow-y: auto;
             flex: 1;
         }
+        .emoticon-grid.mini-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
         .emoticon-item {
             aspect-ratio: 1;
             background-color: var(--bg-tertiary);
@@ -399,6 +411,12 @@ BEFORE_PREVIEW_TEMPLATE = """
             padding: 8px;
             cursor: pointer;
             transition: all 0.15s;
+        }
+        .emoticon-item.mini-item {
+            aspect-ratio: auto;
+            height: 40px;
+            padding: 4px;
+            border-radius: 8px;
         }
         .emoticon-item:hover {
             background-color: var(--border-color);
@@ -412,6 +430,9 @@ BEFORE_PREVIEW_TEMPLATE = """
             font-weight: 700;
             color: var(--kakao-yellow);
         }
+        .mini-item .emoticon-number {
+            font-size: 14px;
+        }
         .emoticon-desc {
             font-size: 9px;
             color: var(--text-muted);
@@ -424,6 +445,72 @@ BEFORE_PREVIEW_TEMPLATE = """
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
+        }
+        .mini-item .emoticon-desc {
+            display: none;
+        }
+        /* 입력칸 내 미니 이모티콘 */
+        .input-mini-emoticons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            align-items: center;
+            max-width: 100%;
+        }
+        .input-mini-item {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--kakao-yellow);
+            color: var(--kakao-brown);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .input-mini-item:hover {
+            opacity: 0.8;
+        }
+        /* 미니 이모티콘만 전송 시 (6개 이하) */
+        .message-mini-only {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            max-width: 80%;
+            margin-left: auto;
+        }
+        .mini-only-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: flex-end;
+            max-width: 260px;
+        }
+        .mini-only-item {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--kakao-yellow);
+            color: var(--kakao-brown);
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+        }
+        /* 말풍선 내 미니 이모티콘 (인라인) */
+        .mini-emoticon-inline {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 3px;
+            padding: 1px 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 1px;
+            vertical-align: middle;
         }
         .selection-popup {
             position: absolute;
@@ -570,7 +657,8 @@ BEFORE_PREVIEW_TEMPLATE = """
             </div>
             <div class="input-bar">
                 <button class="input-btn" id="addBtn">+</button>
-                <div class="input-field-wrapper">
+                <div class="input-field-wrapper" id="inputFieldWrapper">
+                    <div class="input-mini-emoticons" id="inputMiniEmoticons" style="display: none;"></div>
                     <input type="text" class="input-field" id="messageInput" placeholder="메시지 입력">
                     <button class="emoji-btn" id="emojiBtn">☺︎</button>
                 </div>
@@ -585,8 +673,8 @@ BEFORE_PREVIEW_TEMPLATE = """
             
             <div class="panel-category-bar">
                 <button class="panel-category-btn">검색</button>
-                <button class="panel-category-btn active">이모티콘</button>
-                <button class="panel-category-btn">미니 이모티콘</button>
+                <button class="panel-category-btn{% if not is_mini %} active{% endif %}" data-category="emoticon">이모티콘</button>
+                <button class="panel-category-btn{% if is_mini %} active{% endif %}" data-category="mini">미니 이모티콘</button>
             </div>
             
             <div class="panel-tabs">
@@ -602,9 +690,9 @@ BEFORE_PREVIEW_TEMPLATE = """
                 <span class="panel-type-badge">{{ emoticon_type_name }}</span>
             </div>
             
-            <div class="emoticon-grid" id="emoticonGrid">
+            <div class="emoticon-grid{% if is_mini %} mini-grid{% endif %}" id="emoticonGrid">
                 {% for plan in plans %}
-                <div class="emoticon-item" data-index="{{ loop.index }}" data-desc="{{ plan.description }}">
+                <div class="emoticon-item{% if is_mini %} mini-item{% endif %}" data-index="{{ loop.index }}" data-desc="{{ plan.description }}">
                     <span class="emoticon-number">{{ loop.index }}</span>
                     <span class="emoticon-desc">{{ plan.description }}</span>
                 </div>
@@ -656,6 +744,8 @@ BEFORE_PREVIEW_TEMPLATE = """
         const modeToggle = document.getElementById('modeToggle');
         const infoToggleBtn = document.getElementById('infoToggleBtn');
         const infoSection = document.getElementById('infoSection');
+        const inputFieldWrapper = document.getElementById('inputFieldWrapper');
+        const inputMiniEmoticons = document.getElementById('inputMiniEmoticons');
         
         let isPanelOpen = false;
         let selectedEmoticon = null;
@@ -664,9 +754,14 @@ BEFORE_PREVIEW_TEMPLATE = """
         let startY = 0;
         let panelHeight = 0;
         
+        // 미니 이모티콘 여부
+        const isMini = {{ 'true' if is_mini else 'false' }};
+        // 입력칸에 추가된 미니 이모티콘 목록
+        let miniEmoticons = [];
+        
         // Update send button state
         function updateSendButton() {
-            if (messageInput.value.trim() || selectedEmoticon) {
+            if (messageInput.value.trim() || selectedEmoticon || miniEmoticons.length > 0) {
                 sendBtn.classList.add('active');
                 sendBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
             } else {
@@ -677,15 +772,55 @@ BEFORE_PREVIEW_TEMPLATE = """
         
         messageInput.addEventListener('input', updateSendButton);
         
+        // 미니 이모티콘 입력칸 UI 업데이트
+        function updateMiniInput() {
+            if (miniEmoticons.length === 0) {
+                inputMiniEmoticons.style.display = 'none';
+                inputFieldWrapper.classList.remove('has-mini');
+            } else {
+                inputMiniEmoticons.style.display = 'flex';
+                inputFieldWrapper.classList.add('has-mini');
+                inputMiniEmoticons.innerHTML = miniEmoticons.map((e, i) => 
+                    `<span class="input-mini-item" data-mini-index="${i}">[${e.index}]</span>`
+                ).join('');
+            }
+            updateSendButton();
+        }
+        
+        // 미니 이모티콘 입력칸에서 클릭 시 제거
+        inputMiniEmoticons.addEventListener('click', (e) => {
+            const item = e.target.closest('.input-mini-item');
+            if (!item) return;
+            const idx = parseInt(item.dataset.miniIndex);
+            miniEmoticons.splice(idx, 1);
+            updateMiniInput();
+        });
+        
         // Send message or emoticon
         function sendMessage() {
-            if (selectedEmoticon) {
+            if (selectedEmoticon && !isMini) {
                 addMessage(`[${selectedEmoticon.index}]`, 'emoticon', selectedEmoticon.desc);
                 closeSelection();
                 return;
             }
             
             const text = messageInput.value.trim();
+            
+            // 미니 이모티콘 처리
+            if (isMini && miniEmoticons.length > 0) {
+                if (text === '' && miniEmoticons.length <= 6) {
+                    // 미니 이모티콘만 6개 이하: 말풍선 없이 가로로 배치
+                    addMiniOnlyMessage(miniEmoticons);
+                } else {
+                    // 텍스트와 섞여있거나 7개 이상: 말풍선 안에 인라인으로
+                    addMixedMessage(text, miniEmoticons);
+                }
+                miniEmoticons = [];
+                messageInput.value = '';
+                updateMiniInput();
+                return;
+            }
+            
             if (!text) return;
             
             addMessage(text, 'text');
@@ -699,6 +834,44 @@ BEFORE_PREVIEW_TEMPLATE = """
                 sendMessage();
             }
         });
+        
+        // 미니 이모티콘만 전송 (6개 이하)
+        function addMiniOnlyMessage(emojis) {
+            const message = document.createElement('div');
+            message.className = 'message-mini-only';
+            
+            const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            
+            const itemsHtml = emojis.map(e => `<div class="mini-only-item">[${e.index}]</div>`).join('');
+            
+            message.innerHTML = `
+                <div class="mini-only-container">${itemsHtml}</div>
+                <span class="message-time">${time}</span>
+            `;
+            
+            chatArea.appendChild(message);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+        
+        // 텍스트와 미니 이모티콘 혼합 메시지
+        function addMixedMessage(text, emojis) {
+            const message = document.createElement('div');
+            message.className = 'message';
+            
+            const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            
+            // 미니 이모티콘을 인라인으로 표시
+            const emojisHtml = emojis.map(e => `<span class="mini-emoticon-inline">[${e.index}]</span>`).join('');
+            const content = escapeHtml(text) + emojisHtml;
+            
+            message.innerHTML = `
+                <div class="message-bubble">${content}</div>
+                <span class="message-time">${time}</span>
+            `;
+            
+            chatArea.appendChild(message);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
         
         // Add message to chat
         function addMessage(content, type, desc = '') {
@@ -748,6 +921,16 @@ BEFORE_PREVIEW_TEMPLATE = """
         emoticonGrid.addEventListener('click', (e) => {
             const item = e.target.closest('.emoticon-item');
             if (!item) return;
+            
+            if (isMini) {
+                // 미니 이모티콘: 입력칸에 추가
+                miniEmoticons.push({
+                    index: item.dataset.index,
+                    desc: item.dataset.desc
+                });
+                updateMiniInput();
+                return;
+            }
             
             selectedEmoticon = {
                 index: item.dataset.index,
@@ -1206,6 +1389,9 @@ AFTER_PREVIEW_TEMPLATE = """
             --bubble-mine: #fee500;
             --bubble-mine-text: #3c1e1e;
         }
+        .light-mode .mini-emoticon-inline {
+            background-color: rgba(0,0,0,0.08);
+        }
         * {
             margin: 0;
             padding: 0;
@@ -1386,9 +1572,15 @@ AFTER_PREVIEW_TEMPLATE = """
             font-size: 14px;
             outline: none;
             padding: 8px 0;
+            min-width: 50px;
         }
         .input-field::placeholder {
             color: var(--text-muted);
+        }
+        .input-field-wrapper.has-mini {
+            flex-wrap: wrap;
+            padding: 6px 4px 6px 10px;
+            gap: 4px;
         }
         .emoji-btn {
             width: 32px;
@@ -1573,6 +1765,9 @@ AFTER_PREVIEW_TEMPLATE = """
             overflow-y: auto;
             flex: 1;
         }
+        .emoticon-grid.mini-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
         .emoticon-item {
             aspect-ratio: 1;
             background-color: var(--bg-tertiary);
@@ -1583,6 +1778,12 @@ AFTER_PREVIEW_TEMPLATE = """
             padding: 8px;
             cursor: pointer;
             transition: all 0.15s;
+        }
+        .emoticon-item.mini-item {
+            aspect-ratio: auto;
+            height: 40px;
+            padding: 4px;
+            border-radius: 8px;
         }
         .emoticon-item:hover {
             background-color: var(--border-color);
@@ -1595,6 +1796,73 @@ AFTER_PREVIEW_TEMPLATE = """
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
+        }
+        .emoticon-item.mini-item img {
+            height: 32px;
+            width: auto;
+        }
+        /* 입력칸 내 미니 이모티콘 */
+        .input-mini-emoticons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            align-items: center;
+            max-width: 100%;
+        }
+        .input-mini-item {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            cursor: pointer;
+            height: 24px;
+            overflow: hidden;
+        }
+        .input-mini-item img {
+            height: 100%;
+            width: auto;
+        }
+        .input-mini-item:hover {
+            opacity: 0.8;
+        }
+        /* 미니 이모티콘만 전송 시 (6개 이하) */
+        .message-mini-only {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            max-width: 80%;
+            margin-left: auto;
+        }
+        .mini-only-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: flex-end;
+            max-width: 260px;
+        }
+        .mini-only-item {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .mini-only-item img {
+            height: 100%;
+            width: auto;
+        }
+        /* 말풍선 내 미니 이모티콘 (인라인) */
+        .mini-emoticon-inline {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            margin: 0 1px;
+            vertical-align: middle;
+            height: 18px;
+        }
+        .mini-emoticon-inline img {
+            height: 100%;
+            width: auto;
         }
         .selection-popup {
             position: absolute;
@@ -1733,7 +2001,8 @@ AFTER_PREVIEW_TEMPLATE = """
             </div>
             <div class="input-bar">
                 <button class="input-btn" id="addBtn">+</button>
-                <div class="input-field-wrapper">
+                <div class="input-field-wrapper" id="inputFieldWrapper">
+                    <div class="input-mini-emoticons" id="inputMiniEmoticons" style="display: none;"></div>
                     <input type="text" class="input-field" id="messageInput" placeholder="메시지 입력">
                     <button class="emoji-btn" id="emojiBtn">☺︎</button>
                 </div>
@@ -1748,8 +2017,8 @@ AFTER_PREVIEW_TEMPLATE = """
             
             <div class="panel-category-bar">
                 <button class="panel-category-btn">검색</button>
-                <button class="panel-category-btn active">이모티콘</button>
-                <button class="panel-category-btn">미니 이모티콘</button>
+                <button class="panel-category-btn{% if not is_mini %} active{% endif %}" data-category="emoticon">이모티콘</button>
+                <button class="panel-category-btn{% if is_mini %} active{% endif %}" data-category="mini">미니 이모티콘</button>
             </div>
             
             <div class="panel-tabs">
@@ -1774,9 +2043,9 @@ AFTER_PREVIEW_TEMPLATE = """
                 <span class="panel-type-badge">{{ emoticon_type_name }}</span>
             </div>
             
-            <div class="emoticon-grid" id="emoticonGrid">
+            <div class="emoticon-grid{% if is_mini %} mini-grid{% endif %}" id="emoticonGrid">
                 {% for emoticon in emoticons %}
-                <div class="emoticon-item" data-index="{{ loop.index }}" data-src="{{ emoticon.image_data }}">
+                <div class="emoticon-item{% if is_mini %} mini-item{% endif %}" data-index="{{ loop.index }}" data-src="{{ emoticon.image_data }}">
                     <img src="{{ emoticon.image_data }}" alt="이모티콘 {{ loop.index }}">
                 </div>
                 {% endfor %}
@@ -1816,6 +2085,8 @@ AFTER_PREVIEW_TEMPLATE = """
         const modeToggle = document.getElementById('modeToggle');
         const infoToggleBtn = document.getElementById('infoToggleBtn');
         const infoSection = document.getElementById('infoSection');
+        const inputFieldWrapper = document.getElementById('inputFieldWrapper');
+        const inputMiniEmoticons = document.getElementById('inputMiniEmoticons');
         
         let isPanelOpen = false;
         let selectedEmoticon = null;
@@ -1824,9 +2095,14 @@ AFTER_PREVIEW_TEMPLATE = """
         let startY = 0;
         let panelHeight = 0;
         
+        // 미니 이모티콘 여부
+        const isMini = {{ 'true' if is_mini else 'false' }};
+        // 입력칸에 추가된 미니 이모티콘 목록
+        let miniEmoticons = [];
+        
         // Update send button state
         function updateSendButton() {
-            if (messageInput.value.trim() || selectedEmoticon) {
+            if (messageInput.value.trim() || selectedEmoticon || miniEmoticons.length > 0) {
                 sendBtn.classList.add('active');
                 sendBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
             } else {
@@ -1837,15 +2113,55 @@ AFTER_PREVIEW_TEMPLATE = """
         
         messageInput.addEventListener('input', updateSendButton);
         
+        // 미니 이모티콘 입력칸 UI 업데이트
+        function updateMiniInput() {
+            if (miniEmoticons.length === 0) {
+                inputMiniEmoticons.style.display = 'none';
+                inputFieldWrapper.classList.remove('has-mini');
+            } else {
+                inputMiniEmoticons.style.display = 'flex';
+                inputFieldWrapper.classList.add('has-mini');
+                inputMiniEmoticons.innerHTML = miniEmoticons.map((e, i) => 
+                    `<span class="input-mini-item" data-mini-index="${i}"><img src="${e.src}" alt=""></span>`
+                ).join('');
+            }
+            updateSendButton();
+        }
+        
+        // 미니 이모티콘 입력칸에서 클릭 시 제거
+        inputMiniEmoticons.addEventListener('click', (e) => {
+            const item = e.target.closest('.input-mini-item');
+            if (!item) return;
+            const idx = parseInt(item.dataset.miniIndex);
+            miniEmoticons.splice(idx, 1);
+            updateMiniInput();
+        });
+        
         // Send message or emoticon
         function sendMessage() {
-            if (selectedEmoticon) {
+            if (selectedEmoticon && !isMini) {
                 addMessage('', 'emoticon', selectedEmoticon.src);
                 closeSelection();
                 return;
             }
             
             const text = messageInput.value.trim();
+            
+            // 미니 이모티콘 처리
+            if (isMini && miniEmoticons.length > 0) {
+                if (text === '' && miniEmoticons.length <= 6) {
+                    // 미니 이모티콘만 6개 이하: 말풍선 없이 가로로 배치
+                    addMiniOnlyMessage(miniEmoticons);
+                } else {
+                    // 텍스트와 섞여있거나 7개 이상: 말풍선 안에 인라인으로
+                    addMixedMessage(text, miniEmoticons);
+                }
+                miniEmoticons = [];
+                messageInput.value = '';
+                updateMiniInput();
+                return;
+            }
+            
             if (!text) return;
             
             addMessage(text, 'text');
@@ -1859,6 +2175,44 @@ AFTER_PREVIEW_TEMPLATE = """
                 sendMessage();
             }
         });
+        
+        // 미니 이모티콘만 전송 (6개 이하)
+        function addMiniOnlyMessage(emojis) {
+            const message = document.createElement('div');
+            message.className = 'message-mini-only';
+            
+            const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            
+            const itemsHtml = emojis.map(e => `<div class="mini-only-item"><img src="${e.src}" alt=""></div>`).join('');
+            
+            message.innerHTML = `
+                <div class="mini-only-container">${itemsHtml}</div>
+                <span class="message-time">${time}</span>
+            `;
+            
+            chatArea.appendChild(message);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+        
+        // 텍스트와 미니 이모티콘 혼합 메시지
+        function addMixedMessage(text, emojis) {
+            const message = document.createElement('div');
+            message.className = 'message';
+            
+            const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            
+            // 미니 이모티콘을 인라인으로 표시
+            const emojisHtml = emojis.map(e => `<span class="mini-emoticon-inline"><img src="${e.src}" alt=""></span>`).join('');
+            const content = escapeHtml(text) + emojisHtml;
+            
+            message.innerHTML = `
+                <div class="message-bubble">${content}</div>
+                <span class="message-time">${time}</span>
+            `;
+            
+            chatArea.appendChild(message);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
         
         // Add message to chat
         function addMessage(content, type, imageSrc = '') {
@@ -1907,6 +2261,16 @@ AFTER_PREVIEW_TEMPLATE = """
         emoticonGrid.addEventListener('click', (e) => {
             const item = e.target.closest('.emoticon-item');
             if (!item) return;
+            
+            if (isMini) {
+                // 미니 이모티콘: 입력칸에 추가
+                miniEmoticons.push({
+                    index: item.dataset.index,
+                    src: item.dataset.src
+                });
+                updateMiniInput();
+                return;
+            }
             
             selectedEmoticon = {
                 index: item.dataset.index,
@@ -2116,13 +2480,17 @@ class PreviewGenerator:
         type_key = EmoticonType(emoticon_type) if isinstance(emoticon_type, str) else emoticon_type
         emoticon_type_name = EMOTICON_TYPE_NAMES[type_key]
         
+        # 미니 이모티콘 여부 확인
+        is_mini = type_key in [EmoticonType.STATIC_MINI, EmoticonType.DYNAMIC_MINI]
+        
         template = Template(BEFORE_PREVIEW_TEMPLATE)
         html_content = template.render(
             title=title,
             emoticon_type=emoticon_type,
             emoticon_type_name=emoticon_type_name,
             plans=plans,
-            spec=spec
+            spec=spec,
+            is_mini=is_mini
         )
         
         preview_id = self._generate_short_id()
@@ -2157,6 +2525,9 @@ class PreviewGenerator:
         type_key = EmoticonType(emoticon_type) if isinstance(emoticon_type, str) else emoticon_type
         emoticon_type_name = EMOTICON_TYPE_NAMES[type_key]
         
+        # 미니 이모티콘 여부 확인
+        is_mini = type_key in [EmoticonType.STATIC_MINI, EmoticonType.DYNAMIC_MINI]
+        
         # ZIP 파일 생성
         download_id = self._generate_short_id()
         zip_bytes = self._create_zip(emoticons, icon, spec.format.lower())
@@ -2174,7 +2545,8 @@ class PreviewGenerator:
             emoticon_type_name=emoticon_type_name,
             emoticons=emoticons,
             icon=icon,
-            download_url=download_url
+            download_url=download_url,
+            is_mini=is_mini
         )
         
         preview_id = self._generate_short_id()
